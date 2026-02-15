@@ -7,6 +7,7 @@ import { Profile } from './Profile';
 interface NetworkProps {
   currentUser: User;
   onNavigate: (view: ViewState) => void;
+  onChat: (user: User) => void;
 }
 
 // Extended Mock Data for Directory
@@ -25,7 +26,7 @@ const MOCK_USERS: User[] = [
     location: 'San Francisco, CA',
     graduationYear: 2020,
     projects: [
-       { id: 'p1', title: 'AI Analytics Dashboard', description: 'Led the product launch for a new analytics suite.', technologies: ['React', 'Python', 'AI'] }
+      { id: 'p1', title: 'AI Analytics Dashboard', description: 'Led the product launch for a new analytics suite.', technologies: ['React', 'Python', 'AI'] }
     ]
   },
   {
@@ -102,7 +103,7 @@ const MOCK_USERS: User[] = [
     skills: ['R', 'Python', 'SQL'],
     experience: 'Working on a research project about climate change data.',
     projects: [
-       { id: 'sp3', title: 'Climate Data Analysis', description: 'Analyzed 50 years of climate data using Python pandas.', technologies: ['Python', 'Pandas', 'Matplotlib'] }
+      { id: 'sp3', title: 'Climate Data Analysis', description: 'Analyzed 50 years of climate data using Python pandas.', technologies: ['Python', 'Pandas', 'Matplotlib'] }
     ]
   },
   {
@@ -121,7 +122,7 @@ const MOCK_USERS: User[] = [
   }
 ];
 
-export const Network: React.FC<NetworkProps> = ({ currentUser, onNavigate }) => {
+export const Network: React.FC<NetworkProps> = ({ currentUser, onNavigate, onChat }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
 
@@ -138,16 +139,13 @@ export const Network: React.FC<NetworkProps> = ({ currentUser, onNavigate }) => 
     }
   }, []);
 
-  // Filter logic: Show users of the OPPOSITE role (Alumni see Students, Students see Alumni)
+  // Filter logic: Show ALL users (Students can see Students & Alumni, Alumni can see both)
   // Search checks name, title, skills, company, or interests
   const filteredUsers = allUsers.filter(user => {
     if (user.id === currentUser.id) return false; // Don't show self
-    
-    const isOppositeRole = user.role !== currentUser.role;
-    if (!isOppositeRole) return false;
 
     const term = searchTerm.toLowerCase();
-    const matchesSearch = 
+    const matchesSearch =
       user.name.toLowerCase().includes(term) ||
       (user.title && user.title.toLowerCase().includes(term)) ||
       (user.company && user.company.toLowerCase().includes(term)) ||
@@ -164,12 +162,10 @@ export const Network: React.FC<NetworkProps> = ({ currentUser, onNavigate }) => 
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-slate-800">
-            {isStudentView ? 'Find Mentors & Alumni' : 'Discover Talent'}
+            {isStudentView ? 'Find Mentors & Peers' : 'Community Directory'}
           </h1>
           <p className="text-slate-500 mt-1">
-            {isStudentView 
-              ? 'Connect with graduates who can guide your career path.' 
-              : 'Explore profiles of bright students ready for internships and roles.'}
+            Connect with alumni, students, and peers to grow your network.
           </p>
         </div>
       </div>
@@ -178,8 +174,8 @@ export const Network: React.FC<NetworkProps> = ({ currentUser, onNavigate }) => 
       <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
         <div className="relative">
           <Search className="absolute left-3 top-3 w-5 h-5 text-slate-400" />
-          <input 
-            type="text" 
+          <input
+            type="text"
             placeholder={isStudentView ? "Search by company, role, or skill (e.g., 'Google', 'React')..." : "Search by major, skill, or name..."}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
@@ -192,7 +188,7 @@ export const Network: React.FC<NetworkProps> = ({ currentUser, onNavigate }) => 
       {filteredUsers.length > 0 ? (
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredUsers.map(user => (
-            <div 
+            <div
               key={user.id}
               onClick={() => setSelectedUser(user)}
               className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 cursor-pointer hover:shadow-md hover:border-indigo-300 transition-all group"
@@ -204,12 +200,12 @@ export const Network: React.FC<NetworkProps> = ({ currentUser, onNavigate }) => 
                   {user.role === UserRole.GRADUATE ? 'Alumni' : 'Student'}
                 </span>
               </div>
-              
+
               <h3 className="font-bold text-slate-900 text-lg group-hover:text-indigo-600 transition-colors">{user.name}</h3>
               <p className="text-sm font-medium text-slate-700 mb-1">
                 {user.title} {user.company && <span className="text-slate-500">at {user.company}</span>}
               </p>
-              
+
               <div className="flex items-center gap-2 text-xs text-slate-500 mb-4">
                 <MapPin className="w-3 h-3" />
                 {user.location || 'Unknown Location'}
@@ -222,9 +218,9 @@ export const Network: React.FC<NetworkProps> = ({ currentUser, onNavigate }) => 
                   </span>
                 ))}
                 {((user.skills || user.interests || []).length > 3) && (
-                   <span className="px-2 py-1 bg-slate-50 text-slate-400 rounded text-xs">
-                     +{(user.skills || user.interests || []).length - 3} more
-                   </span>
+                  <span className="px-2 py-1 bg-slate-50 text-slate-400 rounded text-xs">
+                    +{(user.skills || user.interests || []).length - 3} more
+                  </span>
                 )}
               </div>
             </div>
@@ -243,17 +239,17 @@ export const Network: React.FC<NetworkProps> = ({ currentUser, onNavigate }) => 
       {/* Profile Modal */}
       {selectedUser && (
         <div className="fixed inset-0 bg-black/50 z-[60] flex items-center justify-center p-4">
-            <div className="bg-slate-50 rounded-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto relative animate-in zoom-in duration-200">
-                <button 
-                onClick={() => setSelectedUser(null)}
-                className="absolute top-4 right-4 z-10 bg-white/50 hover:bg-white p-2 rounded-full backdrop-blur-sm transition-all"
-                >
-                <X className="w-6 h-6 text-slate-800" />
-                </button>
-                <div className="p-6">
-                <Profile user={selectedUser} readOnly={true} onNavigate={onNavigate} />
-                </div>
+          <div className="bg-slate-50 rounded-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto relative animate-in zoom-in duration-200">
+            <button
+              onClick={() => setSelectedUser(null)}
+              className="absolute top-4 right-4 z-10 bg-white/50 hover:bg-white p-2 rounded-full backdrop-blur-sm transition-all"
+            >
+              <X className="w-6 h-6 text-slate-800" />
+            </button>
+            <div className="p-6">
+              <Profile user={selectedUser} readOnly={true} onNavigate={onNavigate} onChat={onChat} />
             </div>
+          </div>
         </div>
       )}
     </div>

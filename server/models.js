@@ -73,7 +73,17 @@ const EventSchema = new mongoose.Schema({
   description: String
 });
 
+const MessageSchema = new mongoose.Schema({
+  id: String,
+  senderId: String,
+  receiverId: String,
+  text: String,
+  timestamp: String,
+  read: { type: Boolean, default: false }
+});
+
 export const User = mongoose.model('User', UserSchema);
 export const Post = mongoose.model('Post', PostSchema);
 export const Job = mongoose.model('Job', JobSchema);
 export const Event = mongoose.model('Event', EventSchema);
+export const Message = mongoose.model('Message', MessageSchema);

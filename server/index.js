@@ -1,8 +1,10 @@
 import express from 'express';
 import mongoose from 'mongoose';
 import cors from 'cors';
-import 'dotenv/config'; // Load environment variables
-import { Post, Job, Event, User } from './models.js'; // Added User
+import dotenv from 'dotenv';
+dotenv.config({ path: '.env.local' });
+dotenv.config(); // Also load .env if it exists
+import { Post, Job, Event, User, Message } from './models.js'; // Added Message
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -18,15 +20,21 @@ app.get('/', (req, res) => {
 // Connect to MongoDB
 const MONGO_URI = process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/alumniconnect';
 
-mongoose.connect(MONGO_URI)
-    .then(() => console.log('MongoDB Connected to Atlas'))
-    .catch(err => {
-        console.error('MongoDB connection error:', err);
-        console.error('---------------------------------------------------');
-        console.error('ERROR: Could not connect to MongoDB.');
-        console.error('Please ensure you have replaced <db_password> with your actual password in server/index.js');
-        console.error('---------------------------------------------------');
-    });
+// Check if credentials are valid
+const hasValidCredentials = !MONGO_URI.includes('<db_password>');
+
+if (hasValidCredentials) {
+    mongoose.connect(MONGO_URI)
+        .then(() => console.log('MongoDB Connected to Atlas'))
+        .catch(err => {
+            console.error('MongoDB connection error:', err);
+        });
+} else {
+    console.log('---------------------------------------------------');
+    console.log('WARNING: MongoDB password not set. Running in OFFLINE MODE.');
+    console.log('Data will be saved to server/data.json file only.');
+    console.log('---------------------------------------------------');
+}
 
 // Initial Data (from App.tsx) - SAME AS BEFORE BUT TRUNCATED FOR BREVITY IN TOOL CALL
 const INITIAL_POSTS = [
@@ -181,6 +189,60 @@ const seedData = async () => {
             await Event.insertMany(INITIAL_EVENTS);
             console.log('Seeded Events');
         }
+
+        const userCount = await User.countDocuments();
+        if (userCount === 0) {
+            // Create users from the authors in INITIAL_POSTS to ensure we have some data
+            const users = [
+                {
+                    id: 'u1',
+                    name: 'Sarah Jenkins',
+                    email: 'sarah.jenkins@example.com',
+                    role: 'GRADUATE',
+                    title: 'Senior Product Manager at TechCorp',
+                    avatar: 'https://picsum.photos/id/64/100/100',
+                    university: 'Tech University',
+                    graduationYear: 2020,
+                    company: 'TechCorp',
+                    department: 'Product',
+                    yearsOfExperience: '4 Years',
+                    skills: ['Product Management', 'Agile', 'Data Analysis'],
+                    bio: 'Passionate about building products that solve real problems.'
+                },
+                {
+                    id: 'u2',
+                    name: 'David Chen',
+                    email: 'david.chen@example.com',
+                    role: 'GRADUATE',
+                    title: 'Backend Engineer at StartupX',
+                    avatar: 'https://picsum.photos/id/91/100/100',
+                    university: 'Tech University',
+                    graduationYear: 2022,
+                    company: 'StartupX',
+                    department: 'Engineering',
+                    yearsOfExperience: '2 Years',
+                    skills: ['Node.js', 'System Design', 'MongoDB'],
+                    bio: 'Building scalable backend systems.'
+                },
+                {
+                    id: 'u_student1',
+                    name: 'Emily Wong',
+                    email: 'emily.wong@university.edu',
+                    role: 'UNDERGRADUATE',
+                    title: 'Computer Science Student',
+                    avatar: 'https://ui-avatars.com/api/?name=Emily+Wong&background=random',
+                    university: 'Tech University',
+                    department: 'Computer Science',
+                    yearOfStudy: 3,
+                    course: 'B.Tech CS',
+                    skills: ['React', 'TypeScript', 'Java'],
+                    interests: ['Web Development', 'AI'],
+                    experience: 'Looking for summer internships.'
+                }
+            ];
+            await User.insertMany(users);
+            console.log('Seeded Users');
+        }
     } catch (error) {
         console.error('Error seeding data:', error);
     }
@@ -269,62 +331,256 @@ app.post('/api/events', async (req, res) => {
     }
 });
 
+app.get('/api/admin/alumni', async (req, res) => {
+    try {
+        if (isMongoConnected()) {
+            const alumni = await User.find({ role: 'GRADUATE' });
+            return res.json(alumni.map(u => ({ ...u.toObject(), id: u._id })));
+        } else {
+            const db = getLocalDB();
+            const alumni = db.users.filter(u => u.role === 'GRADUATE');
+            res.json(alumni);
+        }
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+app.get('/api/admin/students', async (req, res) => {
+    try {
+        if (isMongoConnected()) {
+            const students = await User.find({ role: 'UNDERGRADUATE' });
+            return res.json(students.map(u => ({ ...u.toObject(), id: u._id })));
+        } else {
+            const db = getLocalDB();
+            const students = db.users.filter(u => u.role === 'UNDERGRADUATE');
+            res.json(students);
+        }
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+app.get('/api/admin/activities', async (req, res) => {
+    try {
+        if (isMongoConnected()) {
+            const posts = await Post.find().sort({ _id: -1 });
+            return res.json(posts.map(p => ({ ...p.toObject(), id: p._id })));
+        } else {
+            // In local DB, we might not have a separate posts array populated if we rely on initial mocks, 
+            // but the seedLocalDB doesn't seem to seed posts. (See comments above)
+
+            const db = getLocalDB();
+            // If no posts in local db, return what we have
+            res.json(db.posts || []);
+        }
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Users
+// Get user by email (simple auth for now) or create if not exists
+// --- File-Based DB Fallback (for when Mongo is not configured) ---
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const DB_FILE = path.join(__dirname, 'data.json');
+
+// Initialize local DB file if needed
+// Initialize local DB file if needed
+if (!fs.existsSync(DB_FILE)) {
+    // Seed with empty arrays
+    const initialData = {
+        users: [],
+        messages: [],
+        posts: [],
+        jobs: [],
+        events: []
+    };
+    fs.writeFileSync(DB_FILE, JSON.stringify(initialData, null, 2));
+}
+
+// Seed Initial users if local DB is empty or missing default users
+const seedLocalDB = () => {
+    const db = JSON.parse(fs.readFileSync(DB_FILE, 'utf8'));
+
+    // Check if default users are missing (using d1, d2 matching frontend mocks)
+    const hasDefaultUsers = db.users.some(u => u.id === 'd1');
+
+    if (!hasDefaultUsers) {
+        // Use the initial users but with IDs matching frontend mocks/existing messages
+        const defaultUsers = [
+            {
+                id: 'd1',
+                name: 'Sarah Jenkins',
+                email: 'sarah.jenkins@example.com',
+                role: 'GRADUATE',
+                title: 'Senior Product Manager at TechCorp',
+                avatar: 'https://picsum.photos/id/64/100/100',
+                university: 'Tech University',
+                graduationYear: 2020,
+                company: 'TechCorp',
+                department: 'Product',
+                yearsOfExperience: '4 Years',
+                skills: ['Product Management', 'Agile', 'Data Analysis'],
+                bio: 'Passionate about building products that solve real problems.'
+            },
+            {
+                id: 'd2',
+                name: 'David Chen',
+                email: 'david.chen@example.com',
+                role: 'GRADUATE',
+                title: 'Backend Engineer at StartupX',
+                avatar: 'https://picsum.photos/id/91/100/100',
+                university: 'Tech University',
+                graduationYear: 2022,
+                company: 'StartupX',
+                department: 'Engineering',
+                yearsOfExperience: '2 Years',
+                skills: ['Node.js', 'System Design', 'MongoDB'],
+                bio: 'Building scalable backend systems.'
+            },
+            {
+                id: 's1',
+                name: 'Emily Wong',
+                email: 'emily.wong@university.edu',
+                role: 'UNDERGRADUATE',
+                title: 'Computer Science Student',
+                avatar: 'https://ui-avatars.com/api/?name=Emily+Wong&background=random',
+                university: 'Tech University',
+                department: 'Computer Science',
+                yearOfStudy: 3,
+                course: 'B.Tech CS',
+                skills: ['React', 'TypeScript', 'Java'],
+                interests: ['Web Development', 'AI'],
+                experience: 'Looking for summer internships.'
+            }
+        ];
+
+        // Append default users to existing users
+        db.users = [...db.users, ...defaultUsers];
+        fs.writeFileSync(DB_FILE, JSON.stringify(db, null, 2));
+        console.log('Seeded Local DB with default users (d1, d2, s1)');
+    }
+};
+
+const getLocalDB = () => {
+    // Ensure seeding runs before read
+    seedLocalDB();
+    return JSON.parse(fs.readFileSync(DB_FILE, 'utf8'));
+};
+const saveLocalDB = (data) => fs.writeFileSync(DB_FILE, JSON.stringify(data, null, 2));
+
+const isMongoConnected = () => mongoose.connection.readyState === 1;
+
+// --- Routes ---
+
+// Messages
+app.post('/api/messages', async (req, res) => {
+    try {
+        console.log('POST /api/messages received:', req.body);
+
+        if (isMongoConnected()) {
+            const newMessage = new Message(req.body);
+            const savedMessage = await newMessage.save();
+            console.log('Message saved to Mongo:', savedMessage._id);
+            return res.status(201).json({ ...savedMessage.toObject(), id: savedMessage._id });
+        } else {
+            // Fallback to local DB
+            const db = getLocalDB();
+            const newMessage = { ...req.body, id: `local_${Date.now()}`, timestamp: new Date().toISOString() };
+            db.messages.push(newMessage);
+            saveLocalDB(db);
+            console.log('Message saved to local file:', newMessage.id);
+            return res.status(201).json(newMessage);
+        }
+    } catch (error) {
+        console.error('Error saving message:', error);
+        res.status(400).json({ error: error.message });
+    }
+});
+
+app.get('/api/messages/:userId/:otherUserId', async (req, res) => {
+    try {
+        const { userId, otherUserId } = req.params;
+        console.log(`GET /api/messages/${userId}/${otherUserId}`);
+
+        if (isMongoConnected()) {
+            const messages = await Message.find({
+                $or: [
+                    { senderId: userId, receiverId: otherUserId },
+                    { senderId: otherUserId, receiverId: userId }
+                ]
+            }).sort({ timestamp: 1 });
+            console.log(`Found ${messages.length} messages in Mongo`);
+            return res.json(messages.map(m => ({ ...m.toObject(), id: m._id })));
+        } else {
+            // Fallback to local DB
+            const db = getLocalDB();
+            const messages = db.messages.filter(m =>
+                (m.senderId === userId && m.receiverId === otherUserId) ||
+                (m.senderId === otherUserId && m.receiverId === userId)
+            ).sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+            console.log(`Found ${messages.length} messages in local file`);
+            return res.json(messages);
+        }
+    } catch (error) {
+        console.error('Error fetching messages:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
 // Users
 // Get user by email (simple auth for now) or create if not exists
 app.post('/api/users/login', async (req, res) => {
     try {
         console.log('Login request received with body:', req.body);
         const { email } = req.body;
-        if (!email) {
-            console.warn('Login request missing email');
-            return res.status(400).json({ error: 'Email is required' });
-        }
+        if (!email) return res.status(400).json({ error: 'Email is required' });
 
-        let user = await User.findOne({ email });
-
-        if (!user) {
-            console.log('User not found. Creating new user for:', email);
-            // Create new user if not found (auto-registration for demo)
-            user = new User(req.body);
-            await user.save();
-            console.log('User created and saved:', user._id);
+        if (isMongoConnected()) {
+            let user = await User.findOne({ email });
+            if (!user) {
+                console.log('User not found in Mongo. Creating new user:', email);
+                user = new User(req.body);
+                await user.save();
+            }
+            return res.json({ ...user.toObject(), id: user._id });
         } else {
-            console.log('User found:', user._id);
+            // Fallback to local DB
+            const db = getLocalDB();
+            let user = db.users.find(u => u.email === email);
+            if (!user) {
+                console.log('User not found in local file. Creating new user:', email);
+                user = { ...req.body, id: `local_user_${Date.now()}` };
+                db.users.push(user);
+                saveLocalDB(db);
+            } else {
+                console.log('User found in local file:', user.id);
+            }
+            return res.json(user);
         }
-
-        res.json({ ...user.toObject(), id: user._id });
     } catch (error) {
         console.error('Login error:', error);
         res.status(500).json({ error: error.message });
     }
 });
 
-app.put('/api/users/:id', async (req, res) => {
+app.get('/api/users', async (req, res) => {
     try {
-        const user = await User.findByIdAndUpdate(req.params.id, req.body, { new: true });
-        res.json({ ...user.toObject(), id: user._id });
-    } catch (error) {
-        res.status(400).json({ error: error.message });
-    }
-});
-
-// Admin Routes
-app.get('/api/admin/students', async (req, res) => {
-    try {
-        const students = await User.find({ role: 'UNDERGRADUATE' });
-        res.json(students.map(u => ({ ...u.toObject(), id: u._id })));
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
-});
-
-// Reuse get posts for activities, but maybe we want a comprehensive list?
-// For now, let's just fetch all posts as activities
-app.get('/api/admin/activities', async (req, res) => {
-    try {
-        const posts = await Post.find().sort({ _id: -1 }).limit(50);
-        const formattedPosts = posts.map(p => ({ ...p.toObject(), id: p._id }));
-        res.json(formattedPosts);
+        if (isMongoConnected()) {
+            const users = await User.find({}, '-password');
+            res.json(users.map(u => ({ ...u.toObject(), id: u._id })));
+        } else {
+            const db = getLocalDB();
+            // If local DB is empty, maybe seed it? For now just return what we have
+            // Merge with initial seed data if needed or just rely on what's there
+            res.json(db.users);
+        }
     } catch (error) {
         res.status(500).json({ error: error.message });
     }

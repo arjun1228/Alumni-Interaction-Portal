@@ -1,4 +1,4 @@
-const API_URL = 'http://localhost:5000/api';
+const API_URL = 'http://127.0.0.1:5000/api';
 import { INITIAL_POSTS, INITIAL_JOBS, INITIAL_EVENTS } from '../data/mockData';
 
 // Helper to simulate delay
@@ -112,7 +112,7 @@ export const loginUser = async (userData: any) => {
     try {
         // Add timeout to fetch to fail fast
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 2000); // 2 second timeout
+        const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout for cold starts
 
         const res = await fetch(`${API_URL}/users/login`, {
             method: 'POST',
@@ -127,10 +127,13 @@ export const loginUser = async (userData: any) => {
     } catch (error) {
         console.warn('Network error or timeout: Falling back to offline login', error);
         await delay(500); // Simulate network delay
-        // Return a mock user object based on input
+
+        // Generate stable mock ID based on email to persist identity across refreshes (in offline mode)
+        const stableId = `offline_${btoa(userData.email || 'user').replace(/[^a-zA-Z0-9]/g, '').slice(0, 10)}`;
+
         return {
             ...userData,
-            id: `offline_user_${Date.now()}`,
+            id: stableId,
             avatar: userData.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(userData.name || 'User')}&background=random`
         };
     }
@@ -150,3 +153,73 @@ export const updateUser = async (userId: string, userData: any) => {
         return { ...userData, id: userId };
     }
 }
+
+export const fetchAllUsers = async () => {
+    try {
+        const res = await fetch(`${API_URL}/users`);
+        if (!res.ok) throw new Error('Failed to fetch users');
+        return res.json();
+    } catch (error) {
+        console.warn('Network error: Falling back to empty directory', error);
+        return [];
+    }
+};
+
+export const fetchMessages = async (userId: string, otherUserId: string) => {
+    try {
+        const res = await fetch(`${API_URL}/messages/${userId}/${otherUserId}`);
+        if (!res.ok) throw new Error('Failed to fetch messages');
+        return res.json();
+    } catch (error) {
+        console.warn('Network error: Failed to fetch messages', error);
+        throw error; // Re-throw to prevent overwriting state with empty array
+    }
+};
+
+export const sendMessage = async (messageData: any) => {
+    try {
+        const res = await fetch(`${API_URL}/messages`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(messageData),
+        });
+        if (!res.ok) throw new Error('Failed to send message');
+        return res.json();
+    } catch (error) {
+        console.warn('Network error: Sending message locally only', error);
+        return { ...messageData, id: `local_${Date.now()}` };
+    }
+};
+
+export const fetchAdminStudents = async () => {
+    try {
+        const res = await fetch(`${API_URL}/admin/students`);
+        if (!res.ok) throw new Error('Failed to fetch students');
+        return res.json();
+    } catch (error) {
+        console.warn('Network error: Falling back to empty list', error);
+        return [];
+    }
+};
+
+export const fetchAdminAlumni = async () => {
+    try {
+        const res = await fetch(`${API_URL}/admin/alumni`);
+        if (!res.ok) throw new Error('Failed to fetch alumni');
+        return res.json();
+    } catch (error) {
+        console.warn('Network error: Falling back to empty list', error);
+        return [];
+    }
+};
+
+export const fetchAdminActivities = async () => {
+    try {
+        const res = await fetch(`${API_URL}/admin/activities`);
+        if (!res.ok) throw new Error('Failed to fetch activities');
+        return res.json();
+    } catch (error) {
+        console.warn('Network error: Falling back to empty list', error);
+        return [];
+    }
+};

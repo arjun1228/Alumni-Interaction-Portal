@@ -86,11 +86,29 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin }) => {
         }
       } else {
         // Pass activeTab as role so if the user is auto-created (demo mode), they have the correct role
+        // Also pass default profile data so the profile isn't empty
+        const defaultData = activeTab === UserRole.UNDERGRADUATE ? {
+          department: 'Computer Science',
+          yearOfStudy: 3,
+          course: 'B.Tech CS',
+          skills: ['Java', 'Python', 'React'],
+          interests: ['AI/ML', 'Web Development'],
+          experience: 'Aspiring software engineer with a passion for building scalable web applications.'
+        } : {
+          department: 'Engineering',
+          company: 'Tech Corp',
+          title: 'Software Engineer',
+          yearsOfExperience: '3+ Years',
+          skills: ['System Design', 'Cloud Architecture'],
+          bio: 'Experienced backend engineer passionate about distributed systems.'
+        };
+
         user = await loginUser({
           email,
           password,
           role: activeTab,
-          name: email.split('@')[0] // Fallback name for auto-created users
+          name: email.split('@')[0], // Fallback name for auto-created users
+          ...defaultData
         });
       }
 

@@ -1,0 +1,104 @@
+{
+  "users": [
+    {
+      "email": "Bharath@anurag.edu",
+      "password": "123456",
+      "role": "UNDERGRADUATE",
+      "name": "Bharath",
+      "department": "Computer Science",
+      "yearOfStudy": 3,
+      "course": "B.Tech CS",
+      "skills": [
+        "Java",
+        "Python",
+        "React"
+      ],
+      "interests": [
+        "AI/ML",
+        "Web Development"
+      ],
+      "experience": "Aspiring software engineer.",
+      "id": "local_user_1771050922346"
+    },
+    {
+      "id": "local_user_1771051754147",
+      "name": "Hello",
+      "email": "Hello@anurag.edu",
+      "role": "ADMIN",
+      "title": "AIML",
+      "company": "AU",
+      "avatar": "https://ui-avatars.com/api/?name=Hello&background=random",
+      "skills": [
+        "System Design",
+        "Leadership"
+      ],
+      "bio": "Experienced professional working at AU.",
+      "location": "San Francisco, CA",
+      "password": "123456"
+    },
+    {
+      "id": "d1",
+      "name": "Sarah Jenkins",
+      "email": "sarah.jenkins@example.com",
+      "role": "GRADUATE",
+      "title": "Senior Product Manager at TechCorp",
+      "avatar": "https://picsum.photos/id/64/100/100",
+      "university": "Tech University",
+      "graduationYear": 2020,
+      "company": "TechCorp",
+      "department": "Product",
+      "yearsOfExperience": "4 Years",
+      "skills": [
+        "Product Management",
+        "Agile",
+        "Data Analysis"
+      ],
+      "bio": "Passionate about building products that solve real problems."
+    },
+    {
+      "id": "d2",
+      "name": "David Chen",
+      "email": "david.chen@example.com",
+      "role": "GRADUATE",
+      "title": "Backend Engineer at StartupX",
+      "avatar": "https://picsum.photos/id/91/100/100",
+      "university": "Tech University",
+      "graduationYear": 2022,
+      "company": "StartupX",
+      "department": "Engineering",
+      "yearsOfExperience": "2 Years",
+      "skills": [
+        "Node.js",
+        "System Design",
+        "MongoDB"
+      ],
+      "bio": "Building scalable backend systems."
+    },
+    {
+      "id": "s1",
+      "name": "Emily Wong",
+      "email": "emily.wong@university.edu",
+      "role": "UNDERGRADUATE",
+      "title": "Computer Science Student",
+      "avatar": "https://ui-avatars.com/api/?name=Emily+Wong&background=random",
+      "university": "Tech University",
+      "department": "Computer Science",
+      "yearOfStudy": 3,
+      "course": "B.Tech CS",
+      "skills": [
+        "React",
+        "TypeScript",
+        "Java"
+      ],
+      "interests": [
+        "Web Development",
+        "AI"
+      ],
+      "experience": "Looking for summer internships."
+    }
+  ],
+  "messages": [],
+  "posts": [],
+  "jobs": [],
+  "events": []
+}

@@ -38,6 +38,7 @@ import { fetchPosts, fetchJobs, fetchEvents } from './services/api';
 function App() {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [currentView, setCurrentView] = useState<ViewState>(ViewState.FEED);
+  const [activeChatUser, setActiveChatUser] = useState<User | null>(null); // New state for navigation
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   // Global State
@@ -54,6 +55,12 @@ function App() {
   const handleLogout = () => {
     setCurrentUser(null);
     setCurrentView(ViewState.FEED);
+    setActiveChatUser(null);
+  };
+
+  const handleChat = (user: User) => {
+    setActiveChatUser(user);
+    setCurrentView(ViewState.MESSAGES);
   };
 
   // Auth Screen
@@ -62,7 +69,13 @@ function App() {
   }
 
   if (currentUser.role === UserRole.ADMIN) {
-    return <AdminDashboard currentUser={currentUser} />;
+    return (
+      <AdminDashboard
+        currentUser={currentUser}
+        onNavigate={setCurrentView}
+        onChat={handleChat}
+      />
+    );
   }
 
   const isStudent = currentUser.role === UserRole.UNDERGRADUATE;
@@ -167,9 +180,9 @@ function App() {
                 />
               )}
               {currentView === ViewState.NETWORK && (
-                <Network currentUser={currentUser} onNavigate={setCurrentView} />
+                <Network currentUser={currentUser} onNavigate={setCurrentView} onChat={handleChat} />
               )}
-              {currentView === ViewState.MESSAGES && <Messaging currentUser={currentUser} />}
+              {currentView === ViewState.MESSAGES && <Messaging currentUser={currentUser} initialSelectedUser={activeChatUser} />}
             </div>
 
             {/* Right Sidebar Widgets - Only show on Feed for now, or if viewing Feed as a student */}
