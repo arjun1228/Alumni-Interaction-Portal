@@ -95,9 +95,66 @@
         "AI"
       ],
       "experience": "Looking for summer internships."
+    },
+    {
+      "id": "local_user_1771220550618",
+      "name": "rohith",
+      "email": "rohith@in.edu",
+      "role": "UNDERGRADUATE",
+      "title": "ai",
+      "university": "au",
+      "avatar": "https://ui-avatars.com/api/?name=rohith&background=random",
+      "department": "Computer Science",
+      "yearOfStudy": 3,
+      "course": "B.Tech CS",
+      "interests": [
+        "AI/ML",
+        "Web Development",
+        "Cloud Computing"
+      ],
+      "skills": [
+        "Java",
+        "Python",
+        "React"
+      ],
+      "experience": "Winner of Campus Hackathon 2023. Built a project management tool using React.",
+      "location": "San Francisco, CA",
+      "password": "Ashrith1233"
+    },
+    {
+      "id": "local_user_1771237104410",
+      "name": "Hello",
+      "email": "K@anurag.edu",
+      "role": "GRADUATE",
+      "title": "SDE",
+      "company": "AU",
+      "avatar": "https://ui-avatars.com/api/?name=Hello&background=random",
+      "skills": [
+        "System Design",
+        "Leadership",
+        "Cloud Architecture"
+      ],
+      "bio": "Experienced professional working at AU. passionate about mentoring.",
+      "location": "San Francisco, CA",
+      "password": "123456"
     }
   ],
-  "messages": [],
+  "messages": [
+    {
+      "senderId": "local_user_1771050922346",
+      "receiverId": "local_user_1771051754147",
+      "text": "h;o",
+      "timestamp": "2026-02-16T03:53:14.435Z",
+      "id": "local_1771213994435"
+    },
+    {
+      "senderId": "local_user_1771050922346",
+      "receiverId": "1765641125496",
+      "text": "hlo",
+      "timestamp": "2026-02-16T03:53:33.037Z",
+      "id": "local_1771214013037"
+    }
+  ],
   "posts": [],
   "jobs": [],
   "events": []
