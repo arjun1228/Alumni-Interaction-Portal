@@ -1,10 +1,14 @@
 import Groq from 'groq-sdk';
 
-const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+let groq = null;
 
 export const generateCompletion = async ({ systemPrompt, messages, temperature = 0.7 }) => {
   if (!process.env.GROQ_API_KEY) {
     throw new Error('GROQ_API_KEY is not configured on the server.');
+  }
+
+  if (!groq) {
+    groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
   }
 
   try {
