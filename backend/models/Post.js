@@ -12,7 +12,9 @@ const postSchema = new mongoose.Schema({
     content: { type: String, required: true },
     category: { type: String, enum: ['Advice', 'Achievement', 'General'], required: true },
     likes: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
-    comments: [commentSchema]
+    comments: [commentSchema],
+    isPinned: { type: Boolean, default: false },
+    pinnedAt: Date
 }, { timestamps: true });
 
 export const Post = mongoose.models.Post || mongoose.model('Post', postSchema);

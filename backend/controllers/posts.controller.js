@@ -25,7 +25,7 @@ export const getPosts = async (req, res, next) => {
         }
 
         const posts = await dataStore.find('Post', query, {
-            sort: { isPinned: -1, createdAt: -1 },
+            sort: { isPinned: -1, pinnedAt: -1, createdAt: -1 },
             populate: 'author'
         });
 
@@ -283,9 +283,11 @@ export const pinPost = async (req, res, next) => {
         }
 
         const isPinned = !post.isPinned;
-        const updatedPost = await dataStore.update('Post', { _id: postId }, {
-            $set: { isPinned }
-        });
+        const updates = isPinned 
+            ? { $set: { isPinned, pinnedAt: new Date() } }
+            : { $set: { isPinned }, $unset: { pinnedAt: '' } };
+
+        const updatedPost = await dataStore.update('Post', { _id: postId }, updates);
 
         await logAdminAction(req.user.id || req.user._id, isPinned ? 'pin_post' : 'unpin_post', 'Post', postId);
 
