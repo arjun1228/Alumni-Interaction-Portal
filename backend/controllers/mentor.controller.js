@@ -1,37 +1,29 @@
-import { z } from 'zod';
-import { analyzeResume, generateMockInterview, analyzeSkillGap } from '../services/geminiService.js';
-
-const resumeSchema = z.object({
-    resumeText: z.string().min(1, 'Resume text is required')
-});
-
-const interviewSchema = z.object({
-    role: z.string().min(1, 'Target role is required'),
-    skills: z.array(z.string()).min(1, 'At least one skill is required')
-});
-
-const skillsSchema = z.object({
-    currentSkills: z.array(z.string()).min(1, 'At least one current skill is required'),
-    targetJob: z.string().min(1, 'Target job title is required')
-});
+import { generateCompletion } from '../services/groqService.js';
 
 export const handleResumeReview = async (req, res, next) => {
     try {
-        const parsed = resumeSchema.safeParse(req.body);
-        if (!parsed.success) {
-            return res.status(400).json({
-                success: false,
-                message: 'Validation Error',
-                errors: parsed.error.flatten().fieldErrors
-            });
-        }
+        const { targetRole = "Software Engineer", message, history = [] } = req.body;
+        
+        const content = message || req.body.resumeText || "";
+        
+        const systemPrompt = "You are a university career advisor. Review the user's resume details for structure, ATS optimization, and impact metrics. Provide clear, actionable recommendations in markdown format.";
+        
+        const formattedMessages = [
+            ...history.map(h => ({ 
+                role: h.role === 'model' || h.role === 'assistant' ? 'assistant' : 'user', 
+                content: h.text || h.content 
+            })),
+            { role: 'user', content }
+        ];
 
-        const { resumeText } = parsed.data;
-        const feedback = await analyzeResume(resumeText);
+        const reply = await generateCompletion({
+            systemPrompt,
+            messages: formattedMessages
+        });
 
         res.status(200).json({
             success: true,
-            data: { feedback }
+            data: { reply }
         });
     } catch (err) {
         next(err);
@@ -40,21 +32,27 @@ export const handleResumeReview = async (req, res, next) => {
 
 export const handleInterviewPrep = async (req, res, next) => {
     try {
-        const parsed = interviewSchema.safeParse(req.body);
-        if (!parsed.success) {
-            return res.status(400).json({
-                success: false,
-                message: 'Validation Error',
-                errors: parsed.error.flatten().fieldErrors
-            });
-        }
+        const { targetRole = "Software Engineer", message, history = [] } = req.body;
+        const content = message || "";
 
-        const { role, skills } = parsed.data;
-        const questions = await generateMockInterview(role, skills);
+        const systemPrompt = `You are a mock interview coach. Tailor your questions and review to the target role: "${targetRole}". Ask targeted questions, and provide constructive feedback on answer structure (e.g., STAR method). Format in markdown.`;
+
+        const formattedMessages = [
+            ...history.map(h => ({ 
+                role: h.role === 'model' || h.role === 'assistant' ? 'assistant' : 'user', 
+                content: h.text || h.content 
+            })),
+            { role: 'user', content }
+        ];
+
+        const reply = await generateCompletion({
+            systemPrompt,
+            messages: formattedMessages
+        });
 
         res.status(200).json({
             success: true,
-            data: { questions }
+            data: { reply }
         });
     } catch (err) {
         next(err);
@@ -63,21 +61,31 @@ export const handleInterviewPrep = async (req, res, next) => {
 
 export const handleSkillGapAnalysis = async (req, res, next) => {
     try {
-        const parsed = skillsSchema.safeParse(req.body);
-        if (!parsed.success) {
-            return res.status(400).json({
-                success: false,
-                message: 'Validation Error',
-                errors: parsed.error.flatten().fieldErrors
-            });
+        const { targetRole = "Software Engineer", message, history = [] } = req.body;
+        
+        let content = message || "";
+        if (!content && req.body.currentSkills) {
+            content = `Current Skills: ${req.body.currentSkills.join(', ')}. Target Job: ${req.body.targetJob || targetRole}.`;
         }
 
-        const { currentSkills, targetJob } = parsed.data;
-        const gapAnalysis = await analyzeSkillGap(currentSkills, targetJob);
+        const systemPrompt = `You are a skill-gap analyst. Compare the user's current skills against the target role: "${targetRole || req.body.targetJob || 'Software Engineer'}". Produce a structured roadmap, missing technical/soft skills, project suggestions, and cert recommendations. Format in markdown.`;
+
+        const formattedMessages = [
+            ...history.map(h => ({ 
+                role: h.role === 'model' || h.role === 'assistant' ? 'assistant' : 'user', 
+                content: h.text || h.content 
+            })),
+            { role: 'user', content }
+        ];
+
+        const reply = await generateCompletion({
+            systemPrompt,
+            messages: formattedMessages
+        });
 
         res.status(200).json({
             success: true,
-            data: { gapAnalysis }
+            data: { reply }
         });
     } catch (err) {
         next(err);

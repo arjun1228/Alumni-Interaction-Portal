@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Send, Bot, User as UserIcon, Loader2, Sparkles, FileText, Briefcase, Zap, Paperclip } from 'lucide-react';
-import { sendMessageToMentor } from '../services/gemini';
+import { askMentorResume, askMentorInterview, askMentorGap } from '../services/api';
 
 export const AICoach = () => {
   const [input, setInput] = useState('');
@@ -63,16 +63,38 @@ export const AICoach = () => {
     setIsLoading(true);
 
     try {
-      const responseText = await sendMessageToMentor(userMsg.text);
+      const history = messages.map(m => ({
+        role: m.role === 'model' || m.role === 'assistant' ? 'assistant' : 'user',
+        content: m.text
+      }));
+
+      const lowerText = textToSend.toLowerCase();
+      let replyText = '';
+
+      if (lowerText.includes('resume') || lowerText.includes('[resume content')) {
+        replyText = await askMentorResume({ message: textToSend, history });
+      } else if (lowerText.includes('interview') || lowerText.includes('mock') || lowerText.includes('question')) {
+        replyText = await askMentorInterview({ message: textToSend, history });
+      } else {
+        replyText = await askMentorGap({ message: textToSend, history });
+      }
+
       const aiMsg = {
         id: (Date.now() + 1).toString(),
         role: 'model',
-        text: responseText,
+        text: replyText,
         timestamp: new Date()
       };
       setMessages(prev => [...prev, aiMsg]);
     } catch (error) {
       console.error(error);
+      const errFriendlyMsg = {
+        id: (Date.now() + 1).toString(),
+        role: 'model',
+        text: error.message || "I'm having trouble connecting right now. Please try again.",
+        timestamp: new Date()
+      };
+      setMessages(prev => [...prev, errFriendlyMsg]);
     } finally {
       setIsLoading(false);
     }
@@ -112,7 +134,7 @@ export const AICoach = () => {
           <h2 className="text-white font-bold text-lg flex items-center gap-2">
             AI Career Mentor <Sparkles className="w-4 h-4 text-yellow-300" />
           </h2>
-          <p className="text-indigo-100 text-xs">Powered by Gemini 2.5 Flash</p>
+          <p className="text-indigo-100 text-xs">Powered by Llama 3.3 (Groq)</p>
         </div>
       </div>
 

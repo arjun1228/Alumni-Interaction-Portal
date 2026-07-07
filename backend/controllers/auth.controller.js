@@ -180,7 +180,7 @@ export const login = async (req, res, next) => {
         if (!user) {
             return res.status(401).json({
                 success: false,
-                message: 'login failed email does not exist'
+                message: 'Invalid email or password.'
             });
         }
 
@@ -207,7 +207,7 @@ export const login = async (req, res, next) => {
         if (!isMatch) {
             return res.status(401).json({
                 success: false,
-                message: 'login failed enter correct password'
+                message: 'Invalid email or password.'
             });
         }
 

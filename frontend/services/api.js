@@ -460,3 +460,54 @@ export const deleteEvent = async (eventId) => {
     }
     return await res.json();
 };
+
+export const askMentorResume = async (payload) => {
+    const res = await fetch(`${API_URL}/mentor/resume`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            ...getAuthHeaders()
+        },
+        body: JSON.stringify(payload)
+    });
+    if (!res.ok) {
+        const errJson = await res.json().catch(() => ({}));
+        throw new Error(errJson.message || 'Failed to analyze resume');
+    }
+    const json = await res.json();
+    return json.data?.reply || json.data || json;
+};
+
+export const askMentorInterview = async (payload) => {
+    const res = await fetch(`${API_URL}/mentor/interview`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            ...getAuthHeaders()
+        },
+        body: JSON.stringify(payload)
+    });
+    if (!res.ok) {
+        const errJson = await res.json().catch(() => ({}));
+        throw new Error(errJson.message || 'Failed to get interview feedback');
+    }
+    const json = await res.json();
+    return json.data?.reply || json.data || json;
+};
+
+export const askMentorGap = async (payload) => {
+    const res = await fetch(`${API_URL}/mentor/gap`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            ...getAuthHeaders()
+        },
+        body: JSON.stringify(payload)
+    });
+    if (!res.ok) {
+        const errJson = await res.json().catch(() => ({}));
+        throw new Error(errJson.message || 'Failed to analyze skill gaps');
+    }
+    const json = await res.json();
+    return json.data?.reply || json.data || json;
+};

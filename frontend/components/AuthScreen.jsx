@@ -59,12 +59,6 @@ export const AuthScreen = ({ onLogin }) => {
     setIsLoading(true);
     setError('');
 
-    if (activeTab === UserRole.UNDERGRADUATE && !email.toLowerCase().endsWith('.edu')) {
-      setError('Student logins require a valid .edu email address.');
-      setIsLoading(false);
-      return;
-    }
-
     try {
       const defaultData = activeTab === UserRole.UNDERGRADUATE ? {
         department: 'Computer Science',
