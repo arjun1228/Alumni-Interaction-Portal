@@ -41,6 +41,14 @@ export const serializeUser = (user) => {
     delete serialized.verificationToken;
     delete serialized.referenceToken;
 
+    // Standardize avatar and profilePicture
+    if (serialized.profilePicture && !serialized.avatar) {
+        serialized.avatar = serialized.profilePicture;
+    }
+    if (serialized.avatar && !serialized.profilePicture) {
+        serialized.profilePicture = serialized.avatar;
+    }
+
     return serialized;
 };
 
@@ -73,6 +81,11 @@ export const serializePayload = (data) => {
     }
     if (mapped.user && typeof mapped.user === 'object') {
         mapped.user = serializeUser(mapped.user);
+    }
+
+    // Standardize Event attendeeCount at serialization time
+    if (mapped.attendees && Array.isArray(mapped.attendees)) {
+        mapped.attendeeCount = mapped.attendees.length;
     }
 
     // Standardize top-level IDs

@@ -75,3 +75,16 @@ npm run dev
 The application uses an automated offline fallback mode. If no `MONGO_URI` is provided or if MongoDB Atlas cannot be reached, the server logs a notice:
 `⚠️ MongoDB connection failed. Switching to Local JSON file mode.`
 And automatically seeds and updates `backend/data.json` locally.
+
+---
+
+## 🔍 Verifying the Frontend Build
+After making any dependency or configuration changes affecting Vite, Tailwind CSS, or styles:
+1. Run the production build command:
+   ```bash
+   npm run build --prefix frontend
+   ```
+2. Check the size of the generated stylesheet in `frontend/dist/assets/index-*.css`.
+   - **Expectation:** The file size should be at least **40+ kB** (several tens of kilobytes).
+   - **Warning Sign:** If the generated CSS file is suspiciously small (e.g. **10–12 kB** or less), it indicates that Tailwind's utility classes are not compiling properly (likely due to missing/incorrect imports or content scanner source configurations).
+

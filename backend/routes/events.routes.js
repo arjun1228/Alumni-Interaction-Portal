@@ -1,33 +1,12 @@
 import express from 'express';
-import multer from 'multer';
-import path from 'path';
-import fs from 'fs';
-import { fileURLToPath } from 'url';
-import { getEvents, getEventById, createEvent, rsvpEvent, getAttendees, deleteEvent, updateEvent, removeAttendee } from '../controllers/events.controller.js';
+import { getEvents, getEventById, createEvent, rsvpEvent, getAttendees, deleteEvent, updateEvent, removeAttendee, cancelRsvp } from '../controllers/events.controller.js';
 import { authenticate } from '../middleware/authenticate.js';
 import { authorize, alumniApproved } from '../middleware/authorize.js';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-// Ensure the uploads directory exists
-const uploadDir = path.resolve(__dirname, '../uploads');
-if (!fs.existsSync(uploadDir)) {
-    fs.mkdirSync(uploadDir, { recursive: true });
-}
-
-// Multer diskStorage config
-const storage = multer.diskStorage({
-    destination: (req, file, cb) => {
-        cb(null, uploadDir);
-    },
-    filename: (req, file, cb) => {
-        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
-        cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname));
-    }
-});
-
-const upload = multer({ storage });
+// NOTE: The redundant multer diskStorage instance was removed (K.8 fix).
+// Cover images for events should be uploaded via POST /api/upload (which handles
+// Cloudinary/local-disk fallback) and the returned URL passed as coverImage in
+// the JSON body. Both createEvent and updateEvent accept coverImage as a URL string.
 
 const router = express.Router();
 
@@ -40,15 +19,18 @@ router.post('/', authenticate, authorize('alumni', 'admin'), alumniApproved, cre
 // RSVP to an Event: Protected
 router.post('/:id/rsvp', authenticate, rsvpEvent);
 
+// Cancel own RSVP: Protected (self-service, symmetric to POST /:id/rsvp)
+router.delete('/:id/rsvp', authenticate, cancelRsvp);
+
 // View list of Event RSVPs: Protected (restricted to event organizer or admin only)
 router.get('/:id/attendees', authenticate, getAttendees);
 
 // Delete Event: Protected (restricted to organizer or admin)
 router.delete('/:id', authenticate, deleteEvent);
 
-// Edit Event: Protected (restricted to organizer or admin)
-router.put('/:id', authenticate, upload.single('coverImage'), updateEvent);
-router.patch('/:id', authenticate, upload.single('coverImage'), updateEvent);
+// Edit Event: Protected (restricted to organizer or admin) — accepts coverImage as URL in JSON body
+router.put('/:id', authenticate, updateEvent);
+router.patch('/:id', authenticate, updateEvent);
 
 // Remove Event Attendee: Protected (restricted to admin only)
 router.delete('/:id/attendees/:userId', authenticate, authorize('admin'), removeAttendee);

@@ -7,14 +7,14 @@ export const getDirectory = async (req, res, next) => {
         const query = {};
 
         // Only show students and alumni in public directories (omit admins)
-        if (role) {
+        if (role && typeof role === 'string') {
             query.role = role.toLowerCase();
         } else {
             query.role = { $ne: 'admin' };
         }
 
         // Support string matching against core fields
-        if (search) {
+        if (search && typeof search === 'string') {
             query.$or = [
                 { name: { $regex: search, $options: 'i' } },
                 { skills: { $regex: search, $options: 'i' } },

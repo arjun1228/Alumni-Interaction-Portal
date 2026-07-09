@@ -31,14 +31,14 @@ export const getJobs = async (req, res, next) => {
         const { type, search } = req.query;
         const query = {};
 
-        if (type) {
+        if (type && typeof type === 'string') {
             const mappedType = mapJobType(type);
             if (mappedType) {
                 query.type = mappedType;
             }
         }
 
-        if (search) {
+        if (search && typeof search === 'string') {
             query.$or = [
                 { title: { $regex: search, $options: 'i' } },
                 { company: { $regex: search, $options: 'i' } },
@@ -59,7 +59,7 @@ export const getJobs = async (req, res, next) => {
         const isAdmin = reqUser && (reqUser.role === 'admin' || reqUser.role === 'ADMIN');
 
         // Handle status filter: only open by default for public
-        if (req.query.status) {
+        if (req.query.status && typeof req.query.status === 'string') {
             if (req.query.status === 'open') {
                 query.status = { $ne: 'filled' };
             } else {

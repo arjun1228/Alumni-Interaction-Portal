@@ -86,7 +86,9 @@ export const getChatHistory = async (req, res, next) => {
             receiverId: m.recipient || m.receiverId,
             text: m.text,
             timestamp: m.createdAt || m.timestamp || new Date().toISOString(),
-            read: m.readStatus || m.read || false
+            read: m.readStatus || m.read || false,
+            attachmentName: m.attachmentName,
+            attachmentType: m.attachmentType
         }));
 
         res.status(200).json({
@@ -160,7 +162,9 @@ export const getMessagesBetweenUsers = async (req, res, next) => {
             receiverId: m.recipient || m.receiverId,
             text: m.text,
             timestamp: m.createdAt || m.timestamp || new Date().toISOString(),
-            read: m.readStatus || m.read || false
+            read: m.readStatus || m.read || false,
+            attachmentName: m.attachmentName,
+            attachmentType: m.attachmentType
         }));
 
         res.status(200).json(mapped);
@@ -171,17 +175,19 @@ export const getMessagesBetweenUsers = async (req, res, next) => {
 
 export const sendMessageLegacy = async (req, res, next) => {
     try {
-        const { senderId, receiverId, text } = req.body;
+        const { senderId, receiverId, text, attachmentName, attachmentType } = req.body;
 
-        if (!text || !text.trim()) {
-            return res.status(400).json({ success: false, message: 'Message text is required' });
+        if ((!text || !text.trim()) && !attachmentName) {
+            return res.status(400).json({ success: false, message: 'Message text or attachment is required' });
         }
 
         const messageData = {
             sender: senderId,
             recipient: receiverId,
-            text,
-            readStatus: false
+            text: text || '',
+            readStatus: false,
+            attachmentName,
+            attachmentType
         };
 
         const newMessage = await dataStore.insert('Message', messageData);
@@ -192,7 +198,9 @@ export const sendMessageLegacy = async (req, res, next) => {
             receiverId: newMessage.recipient,
             text: newMessage.text,
             timestamp: newMessage.createdAt,
-            read: newMessage.readStatus || false
+            read: newMessage.readStatus || false,
+            attachmentName: newMessage.attachmentName,
+            attachmentType: newMessage.attachmentType
         };
 
         res.status(201).json(mapped);

@@ -107,7 +107,8 @@ export const fetchEvents = async () => {
             ...e,
             id: e.id || e._id,
             image: e.coverImage || e.image,
-            attendees: e.attendeeCount || e.attendees || 0,
+            attendees: typeof e.attendeeCount === 'number' ? e.attendeeCount : (Array.isArray(e.attendees) ? e.attendees.length : 0),
+            attendeesList: e.attendees || [],
             date: e.date || new Date(e.dateTime).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' }),
             time: e.time || new Date(e.dateTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
         }));
@@ -168,6 +169,24 @@ export const rsvpEvent = async (eventId, userId) => {
         return json.data || json;
     } catch (error) {
         console.warn('Network error: RSVPing to event locally only', error);
+        return { success: true };
+    }
+};
+
+export const cancelRsvpEvent = async (eventId) => {
+    try {
+        const res = await fetch(`${API_URL}/events/${eventId}/rsvp`, {
+            method: 'DELETE',
+            headers: { ...getAuthHeaders() }
+        });
+        if (!res.ok) {
+            const errJson = await res.json().catch(() => ({}));
+            throw new Error(errJson.message || 'Failed to cancel RSVP');
+        }
+        const json = await res.json();
+        return json.data || json;
+    } catch (error) {
+        console.warn('Network error: Canceling RSVP locally only', error);
         return { success: true };
     }
 };
@@ -367,7 +386,9 @@ export const sendMessage = async (messageData) => {
             body: JSON.stringify({
                 senderId: messageData.senderId,
                 receiverId: messageData.receiverId,
-                text: messageData.text
+                text: messageData.text,
+                attachmentName: messageData.attachmentName,
+                attachmentType: messageData.attachmentType
             }),
         });
         if (!res.ok) throw new Error('Failed to send message');
@@ -496,7 +517,7 @@ export const askMentorInterview = async (payload) => {
 };
 
 export const askMentorGap = async (payload) => {
-    const res = await fetch(`${API_URL}/mentor/gap`, {
+    const res = await fetch(`${API_URL}/mentor/skills`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
@@ -510,4 +531,16 @@ export const askMentorGap = async (payload) => {
     }
     const json = await res.json();
     return json.data?.reply || json.data || json;
+};
+
+export const deletePost = async (postId) => {
+    const res = await fetch(`${API_URL}/posts/${postId}`, {
+        method: 'DELETE',
+        headers: { ...getAuthHeaders() }
+    });
+    if (!res.ok) {
+        const errJson = await res.json().catch(() => ({}));
+        throw new Error(errJson.message || 'Failed to delete post');
+    }
+    return await res.json();
 };

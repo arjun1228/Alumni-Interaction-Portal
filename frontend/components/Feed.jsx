@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
-import { MessageSquare, Heart, Share2, Award, Briefcase, Lightbulb, Send, Image, X } from 'lucide-react';
+import { MessageSquare, Heart, Share2, Award, Briefcase, Lightbulb, Send, Image, X, Trash2 } from 'lucide-react';
 import { UserRole } from '../types';
-import { createPost, likePost, uploadImage } from '../services/api';
+import { createPost, likePost, uploadImage, deletePost } from '../services/api';
 
 export const Feed = ({ posts, setPosts, currentUser }) => {
   const [filter, setFilter] = useState('ALL');
@@ -69,6 +69,18 @@ export const Feed = ({ posts, setPosts, currentUser }) => {
       setPosts(posts.map(post => (post.id === postId || post._id === postId) ? updatedPost : post));
     } catch (error) {
       console.error("Failed to like post", error);
+    }
+  };
+
+  const handleDeletePost = async (postId) => {
+    if (window.confirm("Delete this post permanently?")) {
+      try {
+        await deletePost(postId);
+        setPosts(posts.filter(p => (p.id || p._id) !== postId));
+      } catch (err) {
+        console.error("Failed to delete post", err);
+        alert(err.message || "Failed to delete post");
+      }
     }
   };
 
@@ -195,7 +207,12 @@ export const Feed = ({ posts, setPosts, currentUser }) => {
         </div>
       )}
 
-      {filteredPosts.map((post) => {
+      {filteredPosts.length === 0 ? (
+        <div className="text-center py-12 bg-white rounded-xl border border-slate-200 border-dashed">
+          <MessageSquare className="w-8 h-8 text-slate-300 mx-auto mb-3" />
+          <p className="text-slate-500 text-sm">No posts found in this category.</p>
+        </div>
+      ) : filteredPosts.map((post) => {
         const isLiked = post.likedBy?.includes(currentUser.id || currentUser._id);
         const isExpanded = expandedPostId === (post.id || post._id);
 
@@ -211,12 +228,24 @@ export const Feed = ({ posts, setPosts, currentUser }) => {
                     <p className="text-xs text-slate-400">{post.timestamp}</p>
                   </div>
                 </div>
-                <div className={`px-3 py-1 rounded-full text-xs font-medium flex items-center gap-1
-                  ${post.type === 'ACHIEVEMENT' ? 'bg-green-100 text-green-700' :
-                    post.type === 'ADVICE' ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-600'}`}>
-                  {post.type === 'ACHIEVEMENT' && <Award className="w-3 h-3" />}
-                  {post.type === 'ADVICE' && <Lightbulb className="w-3 h-3" />}
-                  {post.type}
+                <div className="flex items-center gap-2">
+                  <div className={`px-3 py-1 rounded-full text-xs font-medium flex items-center gap-1
+                    ${post.type === 'ACHIEVEMENT' ? 'bg-green-100 text-green-700' :
+                      post.type === 'ADVICE' ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-600'}`}>
+                    {post.type === 'ACHIEVEMENT' && <Award className="w-3 h-3" />}
+                    {post.type === 'ADVICE' && <Lightbulb className="w-3 h-3" />}
+                    {post.type}
+                  </div>
+                  {(currentUser.role?.toLowerCase() === 'admin') && (
+                    <button
+                      onClick={() => handleDeletePost(post.id || post._id)}
+                      className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                      title="Delete Post"
+                      aria-label="Delete Post"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  )}
                 </div>
               </div>
 
@@ -296,6 +325,7 @@ export const Feed = ({ posts, setPosts, currentUser }) => {
                       type="submit"
                       disabled={!commentText.trim()}
                       className="absolute right-1 top-1 p-1 bg-indigo-600 text-white rounded-full hover:bg-indigo-700 disabled:opacity-50 transition-colors"
+                      aria-label="Post Comment"
                     >
                       <Send className="w-3 h-3" />
                     </button>

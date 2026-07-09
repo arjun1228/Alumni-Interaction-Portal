@@ -1,16 +1,21 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import { ViewState, UserRole } from './types';
 import { Feed } from './components/Feed';
 import { Jobs } from './components/Jobs';
 import { Events } from './components/Events';
-import { AICoach } from './components/AICoach';
 import { Analytics } from './components/Analytics';
 import { AuthScreen } from './components/AuthScreen';
 import { Profile } from './components/Profile';
 import { Messaging } from './components/Messaging';
 import { Network } from './components/Network';
 import { AcademicCalendar } from './components/AcademicCalendar';
-import { AdminDashboard } from './components/AdminDashboard';
+
+const AdminDashboard = React.lazy(() =>
+  import('./components/AdminDashboard').then(module => ({ default: module.AdminDashboard }))
+);
+const AICoach = React.lazy(() =>
+  import('./components/AICoach').then(module => ({ default: module.AICoach }))
+);
 import {
   LayoutDashboard,
   Briefcase,
@@ -46,6 +51,7 @@ function App() {
   }, []);
 
   const handleLogout = () => {
+    localStorage.removeItem('token');
     setCurrentUser(null);
     setCurrentView(ViewState.FEED);
     setActiveChatUser(null);
@@ -61,18 +67,30 @@ function App() {
     return <AuthScreen onLogin={setCurrentUser} />;
   }
 
-  if (currentUser.role === UserRole.ADMIN) {
+  if (currentUser.role === UserRole.ADMIN || currentUser.role?.toLowerCase() === 'admin') {
     return (
-      <AdminDashboard
-        currentUser={currentUser}
-        onNavigate={setCurrentView}
-        onChat={handleChat}
-        onLogout={handleLogout}
-      />
+      <Suspense fallback={
+        <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+        </div>
+      }>
+        <AdminDashboard
+          currentUser={currentUser}
+          posts={posts}
+          setPosts={setPosts}
+          jobs={jobs}
+          setJobs={setJobs}
+          events={events}
+          setEvents={setEvents}
+          onNavigate={setCurrentView}
+          onChat={handleChat}
+          onLogout={handleLogout}
+        />
+      </Suspense>
     );
   }
 
-  const isStudent = currentUser.role === UserRole.UNDERGRADUATE;
+  const isStudent = currentUser.role === UserRole.UNDERGRADUATE || currentUser.role === 'student';
 
   // Dashboard Layout
   const NavItem = ({ view, icon: Icon, label }) => (
@@ -112,7 +130,7 @@ function App() {
             <NavItem view={ViewState.PROFILE} icon={UserCircle} label="My Profile" />
             <NavItem view={ViewState.NETWORK} icon={Users} label="Network" />
             <NavItem view={ViewState.MESSAGES} icon={MessageSquare} label={isStudent ? "Mentors" : "Messages"} />
-            {currentUser.role === UserRole.GRADUATE && (
+            {(currentUser.role === UserRole.GRADUATE || currentUser.role === 'alumni') && (
               <NavItem view={ViewState.ANALYTICS} icon={BarChart2} label="Analytics" />
             )}
           </div>
@@ -162,10 +180,16 @@ function App() {
                     <h1 className="text-2xl font-bold text-slate-800">AI Career Mentor</h1>
                     <p className="text-slate-500">Get instant advice on your career path, resume, and more.</p>
                   </div>
-                  <AICoach />
+                  <Suspense fallback={
+                    <div className="flex items-center justify-center p-12">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+                    </div>
+                  }>
+                    <AICoach />
+                  </Suspense>
                 </div>
               )}
-              {currentView === ViewState.ANALYTICS && currentUser.role === UserRole.GRADUATE && <Analytics />}
+              {currentView === ViewState.ANALYTICS && (currentUser.role === UserRole.GRADUATE || currentUser.role === 'alumni') && <Analytics />}
               {currentView === ViewState.PROFILE && (
                 <Profile
                   user={currentUser}

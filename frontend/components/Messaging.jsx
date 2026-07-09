@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { UserRole } from '../types';
-import { Search, MessageCircle, Send, ArrowLeft, MoreVertical, UserCircle, X, CheckCheck } from 'lucide-react';
+import { Search, MessageCircle, Send, ArrowLeft, MoreVertical, UserCircle, X, CheckCheck, Paperclip, ExternalLink, Download, Shield } from 'lucide-react';
 import { Profile } from './Profile';
 import { fetchAllUsers, fetchMessages, sendMessage } from '../services/api';
 
@@ -53,6 +53,13 @@ export const Messaging = ({ currentUser, initialSelectedUser }) => {
   // 1. MESSAGES STATE (Backend)
   const [messages, setMessages] = useState([]);
   const [directory, setDirectory] = useState([]);
+
+  // Feature States
+  const [blockedUsers, setBlockedUsers] = useState([]);
+  const [showBlockMenu, setShowBlockMenu] = useState(false);
+  const [attachment, setAttachment] = useState(null);
+  const [showAttachmentMenu, setShowAttachmentMenu] = useState(false);
+  const fileInputRef = useRef(null);
 
   // Fetch Directory on Mount
   useEffect(() => {
@@ -114,28 +121,33 @@ export const Messaging = ({ currentUser, initialSelectedUser }) => {
   // 3. SEND MESSAGE LOGIC
   const handleSendMessage = async (e) => {
     e.preventDefault();
-    if (!messageInput.trim() || !selectedUser) return;
+    if ((!messageInput.trim() && !attachment) || !selectedUser) return;
 
     const tempId = Date.now().toString();
     const newMessage = {
       id: tempId,
       senderId: currentUser.id || currentUser._id,
       receiverId: selectedUser.id || selectedUser._id,
-      text: messageInput,
+      text: messageInput || '',
       timestamp: new Date().toISOString(),
-      read: false
+      read: false,
+      attachmentName: attachment ? attachment.name : undefined,
+      attachmentType: attachment ? attachment.type : undefined
     };
 
     // Optimistic update
     setMessages(prev => [...prev, newMessage]);
     setMessageInput('');
+    setAttachment(null);
 
     try {
       await sendMessage({
         senderId: currentUser.id || currentUser._id,
         receiverId: selectedUser.id || selectedUser._id,
         text: newMessage.text,
-        timestamp: newMessage.timestamp
+        timestamp: newMessage.timestamp,
+        attachmentName: newMessage.attachmentName,
+        attachmentType: newMessage.attachmentType
       });
       // The polling will pick up the real saved message shortly
     } catch (error) {
@@ -179,36 +191,42 @@ export const Messaging = ({ currentUser, initialSelectedUser }) => {
         </div>
 
         <div className="flex-1 overflow-y-auto">
-          {filteredDirectory.map(user => {
-            const lastMsg = getLastMessage(user.id || user._id);
-            return (
-              <div
-                key={user.id || user._id}
-                onClick={() => setSelectedUser(user)}
-                className={`p-4 flex items-center gap-3 cursor-pointer hover:bg-slate-50 transition-colors border-b border-slate-50 ${selectedUser?.id === user.id ? 'bg-indigo-50 border-l-4 border-l-indigo-600' : ''}`}
-              >
-                <div className="flex-1 min-w-0">
-                  <div className="flex justify-between items-baseline mb-1">
-                    <div className="flex items-center gap-2">
-                      <h3 className="font-semibold text-slate-900 truncate">{user.name}</h3>
-                      <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide ${user.role === UserRole.GRADUATE ? 'bg-emerald-100 text-emerald-700' : 'bg-indigo-100 text-indigo-700'
-                        }`}>
-                      {user.role === UserRole.GRADUATE ? 'Alumni' : 'Student'}
-                      </span>
+          {filteredDirectory.length > 0 ? (
+            filteredDirectory.map(user => {
+              const lastMsg = getLastMessage(user.id || user._id);
+              return (
+                <div
+                  key={user.id || user._id}
+                  onClick={() => setSelectedUser(user)}
+                  className={`p-4 flex items-center gap-3 cursor-pointer hover:bg-slate-50 transition-colors border-b border-slate-50 ${selectedUser?.id === user.id ? 'bg-indigo-50 border-l-4 border-l-indigo-600' : ''}`}
+                >
+                  <div className="flex-1 min-w-0">
+                    <div className="flex justify-between items-baseline mb-1">
+                      <div className="flex items-center gap-2">
+                        <h3 className="font-semibold text-slate-900 truncate">{user.name}</h3>
+                        <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide ${user.role === UserRole.GRADUATE ? 'bg-emerald-100 text-emerald-700' : 'bg-indigo-100 text-indigo-700'
+                          }`}>
+                        {user.role === UserRole.GRADUATE ? 'Alumni' : 'Student'}
+                        </span>
+                      </div>
+                      {lastMsg && (
+                        <span className="text-[10px] text-slate-400">
+                          {new Date(lastMsg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </span>
+                      )}
                     </div>
-                    {lastMsg && (
-                      <span className="text-[10px] text-slate-400">
-                        {new Date(lastMsg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                      </span>
-                    )}
+                    <p className={`text-xs truncate ${lastMsg && !lastMsg.read && lastMsg.receiverId === currentUser.id ? 'font-bold text-slate-800' : 'text-slate-500'}`}>
+                      {lastMsg ? ((lastMsg.senderId === currentUser.id || lastMsg.senderId === currentUser._id) ? `You: ${lastMsg.text}` : lastMsg.text) : user.title}
+                    </p>
                   </div>
-                  <p className={`text-xs truncate ${lastMsg && !lastMsg.read && lastMsg.receiverId === currentUser.id ? 'font-bold text-slate-800' : 'text-slate-500'}`}>
-                    {lastMsg ? ((lastMsg.senderId === currentUser.id || lastMsg.senderId === currentUser._id) ? `You: ${lastMsg.text}` : lastMsg.text) : user.title}
-                  </p>
                 </div>
-              </div>
-            );
-          })}
+              );
+            })
+          ) : (
+            <div className="text-center py-8 px-4 text-slate-500 text-sm">
+              No contacts found matching search.
+            </div>
+          )}
         </div>
       </div>
 
@@ -238,13 +256,48 @@ export const Messaging = ({ currentUser, initialSelectedUser }) => {
                 <button
                   onClick={() => setIsProfileOpen(true)}
                   className="p-2 hover:bg-slate-100 rounded-full text-slate-500 hover:text-indigo-600 transition-colors"
-                  title="View Profile"
+                  title="View Profile Details Sidebar"
+                  aria-label="View Profile"
                 >
                   <UserCircle className="w-5 h-5" />
                 </button>
-                <button className="p-2 hover:bg-slate-100 rounded-full text-slate-500">
-                  <MoreVertical className="w-5 h-5" />
-                </button>
+                <div className="relative">
+                  <button 
+                    onClick={() => setShowBlockMenu(!showBlockMenu)}
+                    className={`p-2 hover:bg-slate-100 rounded-full ${showBlockMenu ? 'text-indigo-600 bg-slate-50' : 'text-slate-500'}`}
+                    title="More options"
+                    aria-label="More options"
+                  >
+                    <MoreVertical className="w-5 h-5" />
+                  </button>
+                  {showBlockMenu && (
+                    <div className="absolute right-0 mt-2 w-48 bg-white border border-slate-200 rounded-xl shadow-lg py-1 z-50 animate-in fade-in zoom-in duration-100">
+                      {blockedUsers.includes(selectedUser.id || selectedUser._id) ? (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setBlockedUsers(blockedUsers.filter(id => id !== (selectedUser.id || selectedUser._id)));
+                            setShowBlockMenu(false);
+                          }}
+                          className="w-full text-left px-4 py-2.5 text-sm text-indigo-600 hover:bg-indigo-50 font-semibold flex items-center gap-2"
+                        >
+                          <Shield className="w-4 h-4" /> Unblock User
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setBlockedUsers([...blockedUsers, selectedUser.id || selectedUser._id]);
+                            setShowBlockMenu(false);
+                          }}
+                          className="w-full text-left px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 font-semibold flex items-center gap-2"
+                        >
+                          <Shield className="w-4 h-4 text-red-500" /> Block User
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
 
@@ -269,6 +322,27 @@ export const Messaging = ({ currentUser, initialSelectedUser }) => {
                           }`}>
                           {msg.text}
                         </div>
+                        {msg.attachmentName && (
+                          <div className={`mt-2 flex items-center gap-3 p-3 rounded-xl border text-xs max-w-sm ${isMe
+                            ? 'bg-indigo-700/50 border-indigo-500/25 text-white'
+                            : 'bg-slate-50 border-slate-200 text-slate-800'
+                            }`}>
+                            <div className={`w-8 h-8 rounded flex items-center justify-center font-bold text-xs shrink-0 ${isMe ? 'bg-indigo-900/50 text-indigo-200' : 'bg-red-100 text-red-600'}`}>
+                              {msg.attachmentName.split('.').pop().toUpperCase() || 'FILE'}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="font-semibold truncate">{msg.attachmentName}</p>
+                              <p className="text-[10px] opacity-75">Resource Attachment</p>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => alert(`Downloading attachment: ${msg.attachmentName}`)}
+                              className="p-1 hover:bg-white/10 rounded text-slate-400 hover:text-indigo-600 shrink-0"
+                            >
+                              <Download className="w-4 h-4" />
+                            </button>
+                          </div>
+                        )}
                         <div className="flex items-center gap-1 mt-1 px-1">
                           <span className="text-[10px] text-slate-400">
                             {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
@@ -283,22 +357,101 @@ export const Messaging = ({ currentUser, initialSelectedUser }) => {
               <div ref={messagesEndRef} />
             </div>
 
-            <form onSubmit={handleSendMessage} className="p-4 bg-white border-t border-slate-200 flex gap-2">
-              <input
-                type="text"
-                value={messageInput}
-                onChange={(e) => setMessageInput(e.target.value)}
-                placeholder="Type a message..."
-                className="flex-1 px-4 py-3 bg-slate-100 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm text-slate-900 transition-all focus:bg-white"
-              />
-              <button
-                type="submit"
-                disabled={!messageInput.trim()}
-                className="p-3 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm"
-              >
-                <Send className="w-5 h-5" />
-              </button>
-            </form>
+            {blockedUsers.includes(selectedUser.id || selectedUser._id) ? (
+              <div className="p-6 bg-red-50 border-t border-slate-200 text-center text-sm font-semibold text-red-700 flex items-center justify-center gap-3">
+                <Shield className="w-5 h-5 text-red-500" />
+                <span>You have blocked this user. You cannot send or receive messages.</span>
+                <button
+                  onClick={() => setBlockedUsers(blockedUsers.filter(id => id !== (selectedUser.id || selectedUser._id)))}
+                  className="px-4 py-1.5 bg-red-600 text-white rounded-xl text-xs font-bold hover:bg-red-700 transition-colors shadow-sm"
+                >
+                  Unblock
+                </button>
+              </div>
+            ) : (
+              <>
+                {attachment && (
+                  <div className="px-4 py-2 bg-indigo-50/50 border-t border-slate-200 flex justify-between items-center text-xs text-slate-600">
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold text-red-600 bg-red-100 px-1.5 py-0.5 rounded text-[10px]">
+                        {attachment.name.split('.').pop().toUpperCase()}
+                      </span>
+                      <span className="font-medium truncate max-w-[250px]">{attachment.name}</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setAttachment(null)}
+                      className="p-1 hover:bg-slate-200 text-slate-400 hover:text-slate-600 rounded-full"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                )}
+                
+                <form onSubmit={handleSendMessage} className="p-4 bg-white border-t border-slate-200 flex gap-2">
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    className="hidden"
+                    onChange={e => {
+                      if (e.target.files && e.target.files[0]) {
+                        setAttachment({ name: e.target.files[0].name, type: e.target.files[0].type });
+                      }
+                    }}
+                  />
+                  <div className="relative">
+                    <button
+                      type="button"
+                      onClick={() => setShowAttachmentMenu(!showAttachmentMenu)}
+                      className={`p-3 rounded-xl transition-all ${showAttachmentMenu ? 'bg-indigo-100 text-indigo-600' : 'bg-slate-100 hover:bg-slate-200 text-slate-500'}`}
+                      title="Add attachment"
+                    >
+                      <Paperclip className="w-5 h-5" />
+                    </button>
+                    {showAttachmentMenu && (
+                      <div className="absolute bottom-14 left-0 w-48 bg-white border border-slate-200 rounded-xl shadow-lg py-1.5 z-50 animate-in slide-in-from-bottom duration-150">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            fileInputRef.current?.click();
+                            setShowAttachmentMenu(false);
+                          }}
+                          className="w-full text-left px-4 py-2.5 text-xs text-slate-700 hover:bg-slate-50 flex items-center gap-2 font-medium"
+                        >
+                          📁 Upload Local File
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const name = currentUser.resumeName || `${currentUser.name.split(' ')[0]}_Resume.pdf`;
+                            setAttachment({ name, type: 'application/pdf' });
+                            setShowAttachmentMenu(false);
+                          }}
+                          className="w-full text-left px-4 py-2.5 text-xs text-slate-700 hover:bg-slate-50 flex items-center gap-2 border-t border-slate-100 font-medium"
+                        >
+                          📄 Attach My Resume
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                  
+                  <input
+                    type="text"
+                    value={messageInput}
+                    onChange={(e) => setMessageInput(e.target.value)}
+                    placeholder="Type a message..."
+                    className="flex-1 px-4 py-3 bg-slate-100 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm text-slate-900 transition-all focus:bg-white"
+                  />
+                  <button
+                    type="submit"
+                    disabled={!messageInput.trim() && !attachment}
+                    className="p-3 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm"
+                  >
+                    <Send className="w-5 h-5" />
+                  </button>
+                </form>
+              </>
+            )}
           </>
         ) : (
           <div className="flex-1 flex flex-col items-center justify-center text-slate-400 p-8 text-center bg-slate-50/50">
@@ -312,34 +465,24 @@ export const Messaging = ({ currentUser, initialSelectedUser }) => {
           </div>
         )}
 
-        {/* Right Side Profile Panel */}
+        {/* Full-Screen Profile Modal (all screen sizes) */}
         {isProfileOpen && selectedUser && (
-          <div className="hidden lg:flex w-80 flex-col border-l border-slate-200 bg-white h-full overflow-y-auto animate-in slide-in-from-right duration-200">
-            <div className="p-4 border-b border-slate-100 flex justify-between items-center sticky top-0 bg-white z-10">
-              <h3 className="font-bold text-slate-800">Profile Details</h3>
-              <button
-                onClick={() => setIsProfileOpen(false)}
-                className="p-1.5 hover:bg-slate-100 rounded-full text-slate-500 transition-colors"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            <div className="p-4">
-              <Profile user={selectedUser} readOnly={true} />
-            </div>
-          </div>
-        )}
-
-        {/* Mobile/Tablet Profile Modal (Keep for smaller screens) */}
-        {isProfileOpen && selectedUser && (
-          <div className="lg:hidden fixed inset-0 bg-black/50 z-[60] flex items-center justify-center p-4">
-            <div className="bg-slate-50 rounded-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto relative animate-in zoom-in duration-200">
-              <button
-                onClick={() => setIsProfileOpen(false)}
-                className="absolute top-4 right-4 z-10 bg-white/50 hover:bg-white p-2 rounded-full backdrop-blur-sm transition-all"
-              >
-                <X className="w-6 h-6 text-slate-800" />
-              </button>
+          <div className="fixed inset-0 bg-black/60 z-60 flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in duration-200">
+            <div className="bg-slate-50 rounded-2xl w-full max-w-4xl max-h-[92vh] overflow-y-auto relative animate-in zoom-in-95 duration-200 shadow-2xl">
+              {/* Modal Header */}
+              <div className="sticky top-0 bg-white border-b border-slate-200 px-6 py-4 flex justify-between items-center z-10 rounded-t-2xl">
+                <div>
+                  <h2 className="text-lg font-bold text-slate-900">Profile Details</h2>
+                  <p className="text-sm text-slate-500">{selectedUser.name} &middot; {selectedUser.role === 'alumni' || selectedUser.role === 'graduate' ? 'Alumni' : 'Student'}</p>
+                </div>
+                <button
+                  onClick={() => setIsProfileOpen(false)}
+                  className="p-2 hover:bg-slate-100 rounded-full text-slate-500 hover:text-slate-800 transition-colors"
+                >
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+              {/* Full Profile (no isSidebar — uses the full 2-column layout) */}
               <div className="p-6">
                 <Profile user={selectedUser} readOnly={true} />
               </div>

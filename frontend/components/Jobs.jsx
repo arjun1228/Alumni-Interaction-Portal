@@ -153,11 +153,12 @@ export const Jobs = ({ jobs, setJobs, currentUser }) => {
                   ${job.type === 'INTERNSHIP' ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-green-50 text-green-700 border-green-200'}`}>
                   {job.type.replace('_', ' ')}
                 </span>
-                {currentUser.role === UserRole.ADMIN && (
+                {(currentUser.role?.toLowerCase() === 'admin') && (
                   <button
                     onClick={() => handleDeleteJob(job.id || job._id)}
                     className="p-1.5 text-red-600 hover:text-red-800 hover:bg-red-50 rounded-lg transition-colors"
                     title="Delete Opportunity"
+                    aria-label="Delete Opportunity"
                   >
                     <Trash2 className="w-4 h-4" />
                   </button>
@@ -203,7 +204,11 @@ export const Jobs = ({ jobs, setJobs, currentUser }) => {
                     <p className="text-slate-500 font-medium">{selectedJob.company}</p>
                   </div>
                 </div>
-                <button onClick={() => setSelectedJob(null)} className="p-2 hover:bg-slate-100 rounded-full">
+                <button 
+                  onClick={() => setSelectedJob(null)} 
+                  className="p-2 hover:bg-slate-100 rounded-full"
+                  aria-label="Close Job Details"
+                >
                   <X className="w-6 h-6 text-slate-500" />
                 </button>
               </div>

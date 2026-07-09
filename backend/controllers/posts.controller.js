@@ -20,7 +20,7 @@ export const getPosts = async (req, res, next) => {
     try {
         const { category } = req.query;
         const query = {};
-        if (category) {
+        if (category && typeof category === 'string') {
             query.category = category;
         }
 

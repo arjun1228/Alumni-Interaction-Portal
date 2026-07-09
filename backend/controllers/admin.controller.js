@@ -26,7 +26,7 @@ export const getStudentsDirectory = async (req, res, next) => {
         const { search } = req.query;
         const query = { role: 'student' };
 
-        if (search) {
+        if (search && typeof search === 'string') {
             query.$or = [
                 { name: { $regex: search, $options: 'i' } },
                 { email: { $regex: search, $options: 'i' } },
@@ -55,11 +55,11 @@ export const getAlumniDirectory = async (req, res, next) => {
         const { search, status } = req.query;
         const query = { role: 'alumni' };
 
-        if (status) {
+        if (status && typeof status === 'string') {
             query.approvalStatus = status;
         }
 
-        if (search) {
+        if (search && typeof search === 'string') {
             query.$or = [
                 { name: { $regex: search, $options: 'i' } },
                 { email: { $regex: search, $options: 'i' } },
@@ -99,7 +99,7 @@ const calculateStudentStats = async (student) => {
         email: student.email,
         department: student.department,
         yearOfStudy: student.yearOfStudy,
-        avatar: student.avatar,
+        avatar: student.avatar || student.profilePicture || null,
         registrationDate: student.createdAt,
         createdAt: student.createdAt,
         isVerified: student.isVerified || false,
@@ -131,7 +131,7 @@ const calculateAlumniStats = async (alumni) => {
         jobTitle: alumni.jobTitle,
         title: alumni.jobTitle,
         company: alumni.currentCompany,
-        avatar: alumni.avatar,
+        avatar: alumni.avatar || alumni.profilePicture || null,
         approvalStatus: alumni.approvalStatus || 'pending',
         eventsCreated: events.length,
         jobsPosted: jobs.length,
@@ -169,7 +169,7 @@ export const getStudentsActivitySummary = async (req, res, next) => {
         const { search } = req.query;
         const query = { role: 'student' };
 
-        if (search) {
+        if (search && typeof search === 'string') {
             query.$or = [
                 { name: { $regex: search, $options: 'i' } },
                 { email: { $regex: search, $options: 'i' } }
@@ -219,11 +219,11 @@ export const getAlumniActivitySummary = async (req, res, next) => {
         const { search, status } = req.query;
         const query = { role: 'alumni' };
 
-        if (status) {
+        if (status && typeof status === 'string') {
             query.approvalStatus = status;
         }
 
-        if (search) {
+        if (search && typeof search === 'string') {
             query.$or = [
                 { name: { $regex: search, $options: 'i' } },
                 { email: { $regex: search, $options: 'i' } }
@@ -346,6 +346,40 @@ export const getPlatformStats = async (req, res, next) => {
                 suspendedAccounts: suspendedAccounts.length,
                 systemHealth
             }
+        });
+    } catch (err) {
+        next(err);
+    }
+};
+
+// Admin Activity Log — reads from AdminLog collection (K.12 fix)
+export const getAdminActivities = async (req, res, next) => {
+    try {
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 50;
+        const skip = (page - 1) * limit;
+        const { search } = req.query;
+
+        const query = {};
+        if (search && typeof search === 'string') {
+            query.$or = [
+                { action: { $regex: search, $options: 'i' } },
+                { targetType: { $regex: search, $options: 'i' } },
+                { adminId: { $regex: search, $options: 'i' } }
+            ];
+        }
+
+        const logs = await dataStore.find('AdminLog', query, {
+            sort: { createdAt: -1 },
+            skip,
+            limit
+        });
+
+        res.status(200).json({
+            success: true,
+            data: logs,
+            page,
+            limit
         });
     } catch (err) {
         next(err);

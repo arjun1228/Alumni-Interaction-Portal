@@ -1,6 +1,8 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import helmet from 'helmet';
+import { rateLimit } from 'express-rate-limit';
 import { connectDB, isMongoConnected } from './config/db.js';
 import { errorHandler } from './middleware/errorHandler.js';
 
@@ -34,11 +36,38 @@ if (!process.env.JWT_SECRET || process.env.JWT_SECRET.length < 32) {
 const app = express();
 const PORT = process.env.PORT || 5000;
 
+// Apply helmet security headers (configured to allow cross-origin resource sharing/loading if needed)
+app.use(helmet({
+    crossOriginResourcePolicy: { policy: "cross-origin" }
+}));
+
 // CORS setup to allow communication from local Vite development
 app.use(cors({
     origin: ['http://localhost:3000', 'http://127.0.0.1:3000'],
     credentials: true
 }));
+
+// General rate limiter for all API endpoints to prevent brute-force and DDoS
+const apiLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 200, // Max 200 requests per IP
+    message: { success: false, message: 'Too many requests from this IP, please try again after 15 minutes.' },
+    standardHeaders: true,
+    legacyHeaders: false
+});
+
+// Stricter rate limiter for authentication routes (signup, login) to slow down credential stuffing
+const authLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 15, // Max 15 attempts per IP
+    message: { success: false, message: 'Too many authentication attempts, please try again after 15 minutes.' },
+    standardHeaders: true,
+    legacyHeaders: false
+});
+
+app.use('/api', apiLimiter);
+app.use('/api/auth/login', authLimiter);
+app.use('/api/auth/signup', authLimiter);
 
 app.use(express.json());
 

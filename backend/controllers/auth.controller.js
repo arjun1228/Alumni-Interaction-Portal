@@ -151,7 +151,7 @@ export const signupAlumni = async (req, res, next) => {
 
         res.status(201).json({
             success: true,
-            message: 'Alumni registration received and pending approval.',
+            message: 'Registration successful — you can log in now.',
             data: {
                 user: cleanUserMapped,
                 referenceToken

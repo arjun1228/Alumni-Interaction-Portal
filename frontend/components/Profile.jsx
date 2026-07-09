@@ -2,8 +2,8 @@ import React, { useState } from 'react';
 import { UserRole } from '../types';
 import { MapPin, Mail, BookOpen, Calendar, Briefcase, Award, Download, Building2, Code2, GraduationCap, Edit2, X, MessageSquare, ExternalLink, Plus, Trash2 } from 'lucide-react';
 
-export const Profile = ({ user, onUpdateUser, onNavigate, onChat, readOnly = false }) => {
-  const isStudent = user.role === UserRole.UNDERGRADUATE;
+export const Profile = ({ user, onUpdateUser, onNavigate, onChat, readOnly = false, isSidebar = false }) => {
+  const isStudent = user.role === UserRole.UNDERGRADUATE || user.role === 'student' || user.role === UserRole.STUDENT;
   const [isEditing, setIsEditing] = useState(false);
 
   // Edit State
@@ -22,6 +22,39 @@ export const Profile = ({ user, onUpdateUser, onNavigate, onChat, readOnly = fal
   const [newProjectTitle, setNewProjectTitle] = useState('');
   const [newProjectDesc, setNewProjectDesc] = useState('');
   const [newProjectTech, setNewProjectTech] = useState('');
+
+  // Student specific editing state
+  const [editResumeName, setEditResumeName] = useState(user.resumeName || '');
+  const [editInterests, setEditInterests] = useState(user.interests || []);
+  const [newInterest, setNewInterest] = useState('');
+
+  // Alumni specific skills state
+  const [editSkills, setEditSkills] = useState(user.skills || []);
+  const [newSkill, setNewSkill] = useState('');
+
+  const handleAddInterest = () => {
+    if (!newInterest.trim()) return;
+    if (!editInterests.includes(newInterest.trim())) {
+      setEditInterests([...editInterests, newInterest.trim()]);
+    }
+    setNewInterest('');
+  };
+
+  const handleRemoveInterest = (interest) => {
+    setEditInterests(editInterests.filter(i => i !== interest));
+  };
+
+  const handleAddSkill = () => {
+    if (!newSkill.trim()) return;
+    if (!editSkills.includes(newSkill.trim())) {
+      setEditSkills([...editSkills, newSkill.trim()]);
+    }
+    setNewSkill('');
+  };
+
+  const handleRemoveSkill = (skill) => {
+    setEditSkills(editSkills.filter(s => s !== skill));
+  };
 
   const handleAddProject = () => {
     if (!newProjectTitle || !newProjectDesc) return;
@@ -54,23 +87,26 @@ export const Profile = ({ user, onUpdateUser, onNavigate, onChat, readOnly = fal
         company: editCompany,
         department: editDepartment,
         yearsOfExperience: editExperience,
-        projects: editProjects
+        projects: editProjects,
+        resumeName: editResumeName,
+        interests: editInterests,
+        skills: editSkills
       });
     }
     setIsEditing(false);
   };
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6">
+    <div className={isSidebar ? "space-y-4" : "max-w-4xl mx-auto space-y-6"}>
       {/* Header Section */}
       <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-        <div className={`h-32 ${isStudent ? 'bg-gradient-to-r from-indigo-500 to-purple-600' : 'bg-gradient-to-r from-emerald-600 to-teal-700'}`}></div>
-        <div className="px-8 pb-8">
-          <div className="relative flex justify-between items-end -mt-12 mb-6">
+        <div className={`${isSidebar ? 'h-20' : 'h-32'} ${isStudent ? 'bg-linear-to-r from-indigo-500 to-purple-600' : 'bg-linear-to-r from-emerald-600 to-teal-700'}`}></div>
+        <div className={isSidebar ? "px-4 pb-4" : "px-8 pb-8"}>
+          <div className={`relative flex justify-between items-end ${isSidebar ? '-mt-8 mb-4' : '-mt-12 mb-6'}`}>
             <img
               src={user.avatar}
               alt={user.name}
-              className="w-24 h-24 rounded-2xl border-4 border-white shadow-lg bg-white"
+              className={`${isSidebar ? 'w-16 h-16 rounded-xl border-2' : 'w-24 h-24 rounded-2xl border-4'} border-white shadow-lg bg-white`}
             />
             <div className="flex gap-3">
               {onChat && (
@@ -94,7 +130,7 @@ export const Profile = ({ user, onUpdateUser, onNavigate, onChat, readOnly = fal
           </div>
 
           <div>
-            <h1 className="text-2xl font-bold text-slate-900">{user.name}</h1>
+            <h1 className={isSidebar ? "text-lg font-bold text-slate-900" : "text-2xl font-bold text-slate-900"}>{user.name}</h1>
             <p className="text-slate-600 font-medium flex items-center gap-2 mt-1">
               {isStudent ? <GraduationCap className="w-4 h-4" /> : <Briefcase className="w-4 h-4" />}
               {user.title} {user.university && `at ${user.university}`}
@@ -108,9 +144,9 @@ export const Profile = ({ user, onUpdateUser, onNavigate, onChat, readOnly = fal
         </div>
       </div>
 
-      <div className="grid md:grid-cols-3 gap-6">
+      <div className={isSidebar ? "flex flex-col gap-4" : "grid md:grid-cols-3 gap-6"}>
         {/* Left Column - Details */}
-        <div className="md:col-span-2 space-y-6">
+        <div className={isSidebar ? "space-y-4" : "md:col-span-2 space-y-6"}>
 
           {/* About / Bio / Experience */}
           <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
@@ -132,11 +168,14 @@ export const Profile = ({ user, onUpdateUser, onNavigate, onChat, readOnly = fal
                     <span className="font-bold text-xs">PDF</span>
                   </div>
                   <div>
-                    <p className="text-sm font-semibold text-slate-800">{user.name.split(' ')[0]}'s Resume.pdf</p>
-                    <p className="text-xs text-slate-500">Updated 2 days ago</p>
+                    <p className="text-sm font-semibold text-slate-800">{user.resumeName || `${user.name.split(' ')[0]}'s Resume.pdf`}</p>
+                    <p className="text-xs text-slate-500">Updated recently</p>
                   </div>
                 </div>
-                <button className="text-slate-400 hover:text-indigo-600">
+                <button 
+                  onClick={() => alert(`Downloading: ${user.resumeName || `${user.name.split(' ')[0]}'s Resume.pdf`}`)} 
+                  className="text-slate-400 hover:text-indigo-600"
+                >
                   <Download className="w-5 h-5" />
                 </button>
               </div>
@@ -273,20 +312,24 @@ export const Profile = ({ user, onUpdateUser, onNavigate, onChat, readOnly = fal
                 </li>
               </ul>
             ) : (
-              <div className="space-y-4">
-                <div className="flex flex-wrap gap-2">
-                  {user.skills?.map(skill => (
-                    <span key={skill} className="px-3 py-1 bg-emerald-50 text-emerald-700 border border-emerald-100 rounded-full text-sm">
-                      {skill}
-                    </span>
-                  ))}
-                </div>
-                <div className="pt-4 border-t border-slate-100">
-                  <p className="text-xs text-slate-500 mb-2">Willing to mentor on:</p>
-                  <ul className="text-sm text-slate-700 space-y-1">
-                    <li>• System Design</li>
-                    <li>• Career Growth</li>
-                    <li>• Interview Prep</li>
+              <div className="space-y-3">
+                {user.skills && user.skills.length > 0 ? (
+                  <div className="flex flex-wrap gap-2">
+                    {user.skills.map(skill => (
+                      <span key={skill} className="px-3 py-1.5 bg-emerald-50 text-emerald-700 border border-emerald-100 rounded-full text-sm font-medium">
+                        {skill}
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-slate-400 italic">No skills listed yet.</p>
+                )}
+                <div className="pt-3 border-t border-slate-100">
+                  <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Willing to mentor on:</p>
+                  <ul className="text-sm text-slate-700 space-y-1.5">
+                    <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block"></span> System Design</li>
+                    <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block"></span> Career Growth</li>
+                    <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block"></span> Interview Prep</li>
                   </ul>
                 </div>
               </div>
@@ -346,8 +389,8 @@ export const Profile = ({ user, onUpdateUser, onNavigate, onChat, readOnly = fal
 
                 {/* Alumni Specific Edit Fields */}
                 {!isStudent && (
-                  <div className="p-4 bg-slate-50 rounded-xl space-y-4 border border-slate-100">
-                    <h3 className="text-sm font-bold text-slate-700 border-b border-slate-200 pb-2">Role Details</h3>
+                  <div className="p-4 bg-emerald-50 rounded-xl space-y-4 border border-emerald-100">
+                    <h3 className="text-sm font-bold text-emerald-800 border-b border-emerald-200 pb-2">Role Details</h3>
                     <div>
                       <label className="block text-sm font-medium text-slate-700 mb-1">Company</label>
                       <input type="text" value={editCompany} onChange={e => setEditCompany(e.target.value)} className="w-full border rounded-lg p-2.5" />
@@ -360,6 +403,134 @@ export const Profile = ({ user, onUpdateUser, onNavigate, onChat, readOnly = fal
                       <div>
                         <label className="block text-sm font-medium text-slate-700 mb-1">Experience (Yrs)</label>
                         <input type="text" value={editExperience} onChange={e => setEditExperience(e.target.value)} placeholder="e.g. 5+ Years" className="w-full border rounded-lg p-2.5" />
+                      </div>
+                    </div>
+
+                    {/* Skills & Expertise Tag Manager */}
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Skills &amp; Expertise</label>
+                      <div className="flex gap-2 mb-2">
+                        <input
+                          type="text"
+                          placeholder="Add a skill (e.g. React, Machine Learning)"
+                          value={newSkill}
+                          onChange={e => setNewSkill(e.target.value)}
+                          className="flex-1 text-sm border rounded-lg p-2 focus:ring-2 focus:ring-emerald-500 focus:outline-none bg-white"
+                          onKeyDown={e => {
+                            if (e.key === 'Enter') { e.preventDefault(); handleAddSkill(); }
+                          }}
+                        />
+                        <button
+                          type="button"
+                          onClick={handleAddSkill}
+                          className="px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm font-semibold hover:bg-emerald-700 transition-colors"
+                        >
+                          Add
+                        </button>
+                      </div>
+                      <div className="flex flex-wrap gap-1.5 mt-2">
+                        {editSkills.map((skill, idx) => (
+                          <span
+                            key={idx}
+                            className="inline-flex items-center gap-1 px-2.5 py-1 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-lg text-xs font-semibold animate-in zoom-in duration-150"
+                          >
+                            {skill}
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveSkill(skill)}
+                              className="text-emerald-400 hover:text-emerald-700 focus:outline-none"
+                            >
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          </span>
+                        ))}
+                        {editSkills.length === 0 && (
+                          <span className="text-xs text-slate-400 italic">No skills added yet.</span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Student Specific Edit Fields */}
+                {isStudent && (
+                  <div className="p-4 bg-slate-50 rounded-xl space-y-4 border border-slate-100">
+                    <h3 className="text-sm font-bold text-slate-700 border-b border-slate-200 pb-2">Student Profile Details</h3>
+                    
+                    {/* Resume Upload Selection */}
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Resume File (.pdf)</label>
+                      <div className="flex items-center gap-3">
+                        <input
+                          type="file"
+                          accept=".pdf"
+                          id="resume-file-input"
+                          className="hidden"
+                          onChange={e => {
+                            if (e.target.files && e.target.files[0]) {
+                              setEditResumeName(e.target.files[0].name);
+                            }
+                          }}
+                        />
+                        <label
+                          htmlFor="resume-file-input"
+                          className="cursor-pointer px-4 py-2 bg-white border rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50 border-slate-200 hover:border-slate-300 transition-colors flex items-center gap-2"
+                        >
+                          <Download className="w-4 h-4 text-slate-400 rotate-180" />
+                          {editResumeName ? 'Change Resume' : 'Upload Resume'}
+                        </label>
+                        {editResumeName && (
+                          <span className="text-xs text-slate-500 font-medium truncate max-w-[200px]" title={editResumeName}>
+                            {editResumeName}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* What I want to learn Tags Manager */}
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">What I want to learn</label>
+                      <div className="flex gap-2 mb-2">
+                        <input
+                          type="text"
+                          placeholder="Add an interest (e.g. Next.js)"
+                          value={newInterest}
+                          onChange={e => setNewInterest(e.target.value)}
+                          className="flex-1 text-sm border rounded-lg p-2 focus:ring-2 focus:ring-indigo-500 focus:outline-none bg-white"
+                          onKeyDown={e => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              handleAddInterest();
+                            }
+                          }}
+                        />
+                        <button
+                          type="button"
+                          onClick={handleAddInterest}
+                          className="px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-semibold hover:bg-indigo-700 transition-colors"
+                        >
+                          Add
+                        </button>
+                      </div>
+                      <div className="flex flex-wrap gap-1.5 mt-2">
+                        {editInterests.map((interest, idx) => (
+                          <span
+                            key={idx}
+                            className="inline-flex items-center gap-1 px-2.5 py-1 bg-indigo-50 text-indigo-700 border border-indigo-100 rounded-lg text-xs font-semibold animate-in zoom-in duration-150"
+                          >
+                            {interest}
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveInterest(interest)}
+                              className="text-indigo-400 hover:text-indigo-600 focus:outline-none"
+                            >
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          </span>
+                        ))}
+                        {editInterests.length === 0 && (
+                          <span className="text-xs text-slate-400 italic">No learning interests listed.</span>
+                        )}
                       </div>
                     </div>
                   </div>

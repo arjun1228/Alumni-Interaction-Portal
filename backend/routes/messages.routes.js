@@ -10,7 +10,10 @@ import { authenticate } from '../middleware/authenticate.js';
 
 const router = express.Router();
 
-// Secured Legacy endpoints matching frontend requests
+// ROUTE ORDER IS INTENTIONAL — DO NOT REORDER.
+// Express matches routes in registration order. The legacy 2-segment GET /:senderId/:receiverId
+// MUST be registered before the modern 1-segment GET /:userId, otherwise Express would
+// swallow all two-segment paths as /:userId and never reach this handler.
 router.get('/:senderId/:receiverId', authenticate, (req, res, next) => {
     const currentUserId = (req.user.id || req.user._id).toString();
     const { senderId, receiverId } = req.params;

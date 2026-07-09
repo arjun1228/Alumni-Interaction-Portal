@@ -20,7 +20,7 @@ export const getEvents = async (req, res, next) => {
         const { type } = req.query;
         const query = {};
 
-        if (type) {
+        if (type && typeof type === 'string') {
             query.type = type.toUpperCase();
         }
 
@@ -76,20 +76,13 @@ export const createEvent = async (req, res, next) => {
 
         const userId = req.user.id || req.user._id;
 
-        // Multer file upload check or fallback link
-        let coverImage = 'https://picsum.photos/seed/default/600/300';
-        if (req.file) {
-            coverImage = `/uploads/${req.file.filename}`;
-        } else if (req.body.coverImage) {
-            coverImage = req.body.coverImage;
-        }
+        const coverImage = req.body.coverImage || 'https://picsum.photos/seed/default/600/300';
 
         const eventData = {
             ...parsed.data,
             organizer: userId,
             coverImage,
-            attendees: [],
-            attendeeCount: 0
+            attendees: []
         };
 
         const newEvent = await dataStore.insert('Event', eventData);
@@ -129,8 +122,7 @@ export const rsvpEvent = async (req, res, next) => {
         }
 
         const updatedEvent = await dataStore.update('Event', { _id: eventId }, {
-            $push: { attendees: userId },
-            $set: { attendeeCount: (event.attendeeCount || 0) + 1 }
+            $push: { attendees: userId }
         });
 
         const resolved = await dataStore.find('Event', { _id: eventId }, { populate: 'organizer' });
@@ -247,9 +239,7 @@ export const updateEvent = async (req, res, next) => {
         }
 
         const updateData = { ...parsed.data };
-        if (req.file) {
-            updateData.coverImage = `/uploads/${req.file.filename}`;
-        } else if (req.body.coverImage) {
+        if (req.body.coverImage) {
             updateData.coverImage = req.body.coverImage;
         }
 
@@ -294,10 +284,8 @@ export const removeAttendee = async (req, res, next) => {
             });
         }
 
-        const newAttendeeCount = Math.max(0, (event.attendeeCount || 0) - 1);
         const updatedEvent = await dataStore.update('Event', { _id: id }, {
-            $pull: { attendees: userId },
-            $set: { attendeeCount: newAttendeeCount }
+            $pull: { attendees: userId }
         });
 
         await logAdminAction(req.user.id || req.user._id, 'remove_attendee', 'EventAttendee', userId);
@@ -313,3 +301,34 @@ export const removeAttendee = async (req, res, next) => {
         next(err);
     }
 };
+
+// Self-service un-RSVP: any authenticated user can cancel their own RSVP
+export const cancelRsvp = async (req, res, next) => {
+    try {
+        const eventId = req.params.id;
+        const userId = req.user.id || req.user._id;
+
+        const event = await dataStore.findById('Event', eventId);
+        if (!event) {
+            return res.status(404).json({ success: false, message: 'Event not found.' });
+        }
+
+        const attendeesList = event.attendees || [];
+        const isAttendee = attendeesList.some(id => id.toString() === userId.toString());
+        if (!isAttendee) {
+            return res.status(400).json({ success: false, message: 'You have not RSVPed to this event.' });
+        }
+
+        const updatedEvent = await dataStore.update('Event', { _id: eventId }, {
+            $pull: { attendees: userId }
+        });
+
+        const resolved = await dataStore.find('Event', { _id: eventId }, { populate: 'organizer' });
+        const mappedEvent = serializePayload(resolved[0] || updatedEvent);
+
+        res.status(200).json({ success: true, data: mappedEvent });
+    } catch (err) {
+        next(err);
+    }
+};
+
