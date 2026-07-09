@@ -2,8 +2,10 @@ import React, { useState, useRef } from 'react';
 import { MessageSquare, Heart, Share2, Award, Briefcase, Lightbulb, Send, Image, X, Trash2, Sparkles, Loader2 } from 'lucide-react';
 import { UserRole } from '../types';
 import { createPost, likePost, uploadImage, deletePost, enhancePostText } from '../services/api';
+import { useToast } from './Toast';
 
 export const Feed = ({ posts, setPosts, currentUser, hashtagFilter, setHashtagFilter }) => {
+  const toast = useToast();
   const [filter, setFilter] = useState('ALL');
   const [newPostContent, setNewPostContent] = useState('');
   const [newPostType, setNewPostType] = useState('GENERAL');
@@ -27,9 +29,11 @@ export const Feed = ({ posts, setPosts, currentUser, hashtagFilter, setHashtagFi
       .then(() => {
         setCopiedPostId(postId);
         setTimeout(() => setCopiedPostId(null), 2000);
+        toast('Link copied to clipboard! \ud83d\udd17', 'info', 2000);
       })
       .catch(err => {
         console.error('Failed to copy link:', err);
+        toast('Could not copy link \u2014 please try manually.', 'error', 2500);
       });
   };
 
@@ -57,6 +61,7 @@ export const Feed = ({ posts, setPosts, currentUser, hashtagFilter, setHashtagFi
       setNewPostContent(enhancedPreview);
       setEnhancedPreview(null);
       setEnhanceError('');
+      toast('✨ Enhanced text applied!', 'info', 2000);
     }
   };
 
@@ -111,9 +116,10 @@ export const Feed = ({ posts, setPosts, currentUser, hashtagFilter, setHashtagFi
       setNewPostContent('');
       setNewPostType('GENERAL');
       setPostImageUrl('');
+      toast('Post published to the community! 🚀', 'success');
     } catch (error) {
       console.error("Failed to create post", error);
-      alert(error.message || "Failed to save post. Please check your credentials or try again.");
+      toast(error.message || "Failed to save post — please try again.", 'error');
     }
   };
 
@@ -121,8 +127,11 @@ export const Feed = ({ posts, setPosts, currentUser, hashtagFilter, setHashtagFi
     try {
       const updatedPost = await likePost(postId, currentUser.id || currentUser._id);
       setPosts(posts.map(post => (post.id === postId || post._id === postId) ? updatedPost : post));
+      const isNowLiked = updatedPost.likedBy?.includes(currentUser.id || currentUser._id);
+      if (isNowLiked) toast('❤️ Liked!', 'success', 1800);
     } catch (error) {
       console.error("Failed to like post", error);
+      toast('Could not update like — try again.', 'error', 2500);
     }
   };
 
@@ -131,9 +140,10 @@ export const Feed = ({ posts, setPosts, currentUser, hashtagFilter, setHashtagFi
       try {
         await deletePost(postId);
         setPosts(posts.filter(p => (p.id || p._id) !== postId));
+        toast('Post deleted.', 'info', 2500);
       } catch (err) {
         console.error("Failed to delete post", err);
-        alert(err.message || "Failed to delete post");
+        toast(err.message || "Failed to delete post.", 'error');
       }
     }
   };

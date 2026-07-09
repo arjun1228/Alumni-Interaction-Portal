@@ -2,8 +2,10 @@ import React, { useState } from 'react';
 import { School, Briefcase, GraduationCap, ArrowRight, Loader2, CheckCircle, AlertCircle, Mail, ShieldCheck, RefreshCw } from 'lucide-react';
 import { UserRole } from '../types';
 import { loginUser, registerStudent, registerAlumni } from '../services/api';
+import { useToast } from './Toast';
 
 export const AuthScreen = ({ onLogin }) => {
+  const toast = useToast();
   const [view, setView] = useState('LOGIN');
   const [activeTab, setActiveTab] = useState(UserRole.UNDERGRADUATE);
 
@@ -89,6 +91,7 @@ export const AuthScreen = ({ onLogin }) => {
         setIsLoading(false);
         return;
       }
+      toast(`Welcome back, ${user.name || user.email.split('@')[0]}! 🎉`, 'success');
       onLogin(user);
     } catch (err) {
       console.error(err);
@@ -185,6 +188,7 @@ export const AuthScreen = ({ onLogin }) => {
         password: password,
         role: activeTab
       });
+      toast(`Account created! Welcome to AlumniConnect, ${loggedInUser.name || pendingUser.name}! 🎓`, 'success', 4500);
       onLogin(loggedInUser);
     } catch (err) {
       console.error(err);

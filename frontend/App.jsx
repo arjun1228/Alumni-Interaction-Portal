@@ -34,8 +34,10 @@ import {
 import { Routes, Route } from 'react-router-dom';
 import { PostView } from './components/PostView';
 import { fetchPosts, fetchJobs, fetchEvents, fetchCurrentUser, fetchTrendingTopics } from './services/api';
+import { useToast } from './components/Toast';
 
 function App() {
+  const toast = useToast();
   const [currentUser, setCurrentUser] = useState(null);
   const [currentView, setCurrentView] = useState(ViewState.FEED);
   const [activeChatUser, setActiveChatUser] = useState(null); // New state for navigation
@@ -74,6 +76,7 @@ function App() {
     setCurrentUser(null);
     setCurrentView(ViewState.FEED);
     setActiveChatUser(null);
+    toast('You\'ve been signed out. See you next time! 👋', 'info');
   };
 
   const handleChat = (user) => {

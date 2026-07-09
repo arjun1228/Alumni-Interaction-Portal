@@ -2,8 +2,10 @@ import React, { useState } from 'react';
 import { MapPin, Briefcase, Calendar, Building2, X, Globe, Plus, Search, Trash2 } from 'lucide-react';
 import { UserRole } from '../types';
 import { createJob, applyToJob, deleteJob } from '../services/api';
+import { useToast } from './Toast';
 
 export const Jobs = ({ jobs, setJobs, currentUser }) => {
+  const toast = useToast();
   const [selectedJob, setSelectedJob] = useState(null);
   const [isPosting, setIsPosting] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -14,8 +16,10 @@ export const Jobs = ({ jobs, setJobs, currentUser }) => {
     try {
       await applyToJob(jobId);
       setAppliedJobs(prev => ({ ...prev, [jobId]: true }));
+      toast('🚀 Application submitted! Good luck!', 'success');
     } catch (err) {
       console.error("Failed to track application:", err);
+      toast(err.message || 'Application failed — please try again.', 'error');
     }
   };
 
@@ -36,9 +40,10 @@ export const Jobs = ({ jobs, setJobs, currentUser }) => {
       try {
         await deleteJob(jobId);
         setJobs(prev => prev.filter(j => (j.id || j._id) !== jobId));
+        toast('Job posting deleted.', 'info', 2500);
       } catch (err) {
         console.error("Failed to delete job", err);
-        alert(err.message || "Failed to delete job");
+        toast(err.message || "Failed to delete job", 'error');
       }
     }
   };
@@ -75,8 +80,10 @@ export const Jobs = ({ jobs, setJobs, currentUser }) => {
       setNewDesc('');
       setNewLink('');
       setNewSkills('');
+      toast(`Job "${savedJob.title || newTitle}" posted successfully! 💼`, 'success');
     } catch (error) {
       console.error("Failed to create job", error);
+      toast(error.message || 'Failed to create job posting.', 'error');
     }
   };
 

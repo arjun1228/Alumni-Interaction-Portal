@@ -2,8 +2,10 @@ import React, { useState } from 'react';
 import { Calendar, Users, Video, MapPin, Clock, Plus, X, Upload, CheckCircle, Trash2 } from 'lucide-react';
 import { UserRole } from '../types';
 import { createEvent, rsvpEvent, uploadImage, deleteEvent, cancelRsvpEvent } from '../services/api';
+import { useToast } from './Toast';
 
 export const Events = ({ events, setEvents, currentUser }) => {
+   const toast = useToast();
    const [selectedEvent, setSelectedEvent] = useState(null);
    const [isCreating, setIsCreating] = useState(false);
 
@@ -27,9 +29,10 @@ export const Events = ({ events, setEvents, currentUser }) => {
           try {
              await deleteEvent(eventId);
              setEvents(events.filter(ev => (ev.id || ev._id) !== eventId));
+             toast('Event deleted.', 'info', 2500);
           } catch (err) {
              console.error("Failed to delete event", err);
-             alert(err.message || "Failed to delete event");
+             toast(err.message || "Failed to delete event", 'error');
           }
        }
     };
@@ -71,8 +74,10 @@ export const Events = ({ events, setEvents, currentUser }) => {
          setDate('');
          setTime('');
          setCoverUrl('');
+         toast(`Event "${savedEvent.title || title}" created! 🎉`, 'success');
       } catch (error) {
          console.error("Failed to create event", error);
+         toast(error.message || 'Failed to create event.', 'error');
       }
    };
 
@@ -81,6 +86,7 @@ export const Events = ({ events, setEvents, currentUser }) => {
       try {
          await rsvpEvent(eventId, currentUser.id || currentUser._id);
          setSuccessMessage('Successfully registered!');
+         toast('🎉 You\'re registered for this event!', 'success');
          
          // Update events list locally
          setEvents(events.map(ev => {
@@ -104,6 +110,7 @@ export const Events = ({ events, setEvents, currentUser }) => {
          }, 1500);
       } catch (error) {
          console.error('Failed to register for event:', error);
+         toast(error.message || 'Registration failed — please try again.', 'error');
       } finally {
          setIsRegistering(false);
       }

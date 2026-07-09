@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { Calendar as CalendarIcon, Clock, AlertCircle, Plus, Edit2, Trash2, X, CalendarDays, Check } from 'lucide-react';
 import { fetchCalendarEvents, createCalendarEvent, updateCalendarEvent, deleteCalendarEvent } from '../services/api';
+import { useToast } from './Toast';
 
 export const AcademicCalendar = () => {
+  const toast = useToast();
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isAdding, setIsAdding] = useState(false);
@@ -68,12 +70,14 @@ export const AcademicCalendar = () => {
         setEvents(prev => prev.map(evt => (evt.id === editingEventId || evt._id === editingEventId) ? updated : evt).sort((a, b) => new Date(a.date) - new Date(b.date)));
         setFullScheduleEvents(prev => prev.map(evt => (evt.id === editingEventId || evt._id === editingEventId) ? updated : evt).sort((a, b) => new Date(a.date) - new Date(b.date)));
         setEditingEventId(null);
+        toast('Calendar event updated! 📅', 'success');
       } else {
         // Create new
         const created = await createCalendarEvent({ title, date, category });
         setEvents(prev => [...prev, created].sort((a, b) => new Date(a.date) - new Date(b.date)));
         setFullScheduleEvents(prev => [...prev, created].sort((a, b) => new Date(a.date) - new Date(b.date)));
         setIsAdding(false);
+        toast(`“${title}” added to your calendar! ✅`, 'success');
       }
       // Reset inputs
       setTitle('');
@@ -81,7 +85,7 @@ export const AcademicCalendar = () => {
       setCategory('Academic');
     } catch (err) {
       console.error('Failed to save calendar event:', err);
-      alert(err.message || 'Failed to save calendar event.');
+      toast(err.message || 'Failed to save calendar event.', 'error');
     }
   };
 
@@ -91,9 +95,10 @@ export const AcademicCalendar = () => {
       await deleteCalendarEvent(eventId);
       setEvents(prev => prev.filter(evt => (evt.id || evt._id) !== eventId));
       setFullScheduleEvents(prev => prev.filter(evt => (evt.id || evt._id) !== eventId));
+      toast('Calendar event removed.', 'info', 2500);
     } catch (err) {
       console.error('Failed to delete calendar event:', err);
-      alert(err.message || 'Failed to delete event.');
+      toast(err.message || 'Failed to delete event.', 'error');
     }
   };
 
