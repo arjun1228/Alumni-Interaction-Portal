@@ -4,6 +4,7 @@ import { dataStore } from '../services/dataStore.js';
 import { serializePayload } from '../utils/roleMapper.js';
 import { canModify } from '../utils/permissions.js';
 import { logAdminAction } from '../utils/adminLogger.js';
+import { generateCompletion } from '../services/groqService.js';
 
 const postCreateSchema = z.object({
     content: z.string().min(1, 'Post content cannot be empty'),
@@ -326,6 +327,106 @@ export const pinPost = async (req, res, next) => {
         res.status(200).json({
             success: true,
             data: mappedPost
+        });
+    } catch (err) {
+        next(err);
+    }
+};
+
+export const getTrendingTopics = async (req, res, next) => {
+    try {
+        const posts = await dataStore.find('Post', {});
+
+        const sevenDaysAgo = new Date();
+        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
+        const hashtagCounts = {};
+
+        posts.forEach(post => {
+            const postDate = new Date(post.createdAt || post.updatedAt || Date.now());
+            if (postDate >= sevenDaysAgo && post.content) {
+                const hashtags = post.content.match(/#\w+/g);
+                if (hashtags) {
+                    hashtags.forEach(tag => {
+                        const key = tag.startsWith('#') ? tag : '#' + tag;
+                        const keyLower = key.toLowerCase();
+                        
+                        if (!hashtagCounts[keyLower]) {
+                            hashtagCounts[keyLower] = { tag: key, count: 0 };
+                        }
+                        hashtagCounts[keyLower].count += 1;
+                    });
+                }
+            }
+        });
+
+        // Sort by frequency descending
+        const sortedTags = Object.values(hashtagCounts)
+            .sort((a, b) => b.count - a.count);
+
+        const trendingList = sortedTags.map(item => ({
+            tag: item.tag,
+            count: item.count
+        }));
+
+        // Fallback fillers
+        const defaultTags = ['#AI', '#Internships', '#ResumeTips', '#Hackathon', '#WebDev'];
+        for (const defaultTag of defaultTags) {
+            if (trendingList.length >= 5) break;
+            if (!trendingList.some(item => item.tag.toLowerCase() === defaultTag.toLowerCase())) {
+                trendingList.push({ tag: defaultTag, count: 0 });
+            }
+        }
+
+        res.status(200).json({
+            success: true,
+            data: trendingList.slice(0, 5)
+        });
+    } catch (err) {
+        next(err);
+    }
+};
+
+export const enhancePost = async (req, res, next) => {
+    try {
+        const { text, category = 'General' } = req.body;
+
+        // Guard: must have meaningful content
+        if (!text || typeof text !== 'string' || text.trim().length < 5) {
+            return res.status(400).json({
+                success: false,
+                message: 'Please provide at least a few words for the AI to enhance.'
+            });
+        }
+
+        // Guard: cap to 2000 characters to avoid excessive token usage
+        const cappedText = text.trim().slice(0, 2000);
+
+        const systemPrompt =
+            `You are a writing assistant for a university alumni networking platform. ` +
+            `The user is composing a "${category}" post. ` +
+            `Improve the clarity, tone, and structure of the post while preserving their original meaning and intent. ` +
+            `Keep it concise — do not pad or lengthen unnecessarily. ` +
+            `Do not add hashtags, emojis, or content the user did not imply. ` +
+            `Return only the improved post text — no preamble, no explanation, no quotation marks around it.`;
+
+        const enhanced = await generateCompletion({
+            systemPrompt,
+            messages: [{ role: 'user', content: cappedText }],
+            temperature: 0.4 // Lower temperature = tighter, less creative rewriting
+        });
+
+        // generateCompletion returns a rate-limit message string instead of throwing on 429
+        if (enhanced.includes('temporarily busy')) {
+            return res.status(429).json({
+                success: false,
+                message: 'AI enhancement is temporarily busy — please try again shortly.'
+            });
+        }
+
+        res.status(200).json({
+            success: true,
+            data: { enhanced: enhanced.trim() }
         });
     } catch (err) {
         next(err);

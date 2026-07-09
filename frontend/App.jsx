@@ -33,7 +33,7 @@ import {
 
 import { Routes, Route } from 'react-router-dom';
 import { PostView } from './components/PostView';
-import { fetchPosts, fetchJobs, fetchEvents, fetchCurrentUser } from './services/api';
+import { fetchPosts, fetchJobs, fetchEvents, fetchCurrentUser, fetchTrendingTopics } from './services/api';
 
 function App() {
   const [currentUser, setCurrentUser] = useState(null);
@@ -46,6 +46,9 @@ function App() {
   const [posts, setPosts] = useState([]);
   const [jobs, setJobs] = useState([]);
   const [events, setEvents] = useState([]);
+
+  const [hashtagFilter, setHashtagFilter] = useState(null);
+  const [trendingTopics, setTrendingTopics] = useState([]);
 
   useEffect(() => {
     fetchCurrentUser()
@@ -61,6 +64,10 @@ function App() {
     fetchJobs().then(setJobs).catch(console.error);
     fetchEvents().then(setEvents).catch(console.error);
   }, []);
+
+  useEffect(() => {
+    fetchTrendingTopics().then(setTrendingTopics).catch(console.error);
+  }, [posts]);
 
   const handleLogout = () => {
     localStorage.removeItem('token');
@@ -189,7 +196,15 @@ function App() {
                   <div className="flex flex-col lg:flex-row gap-6">
                     {/* Main View Area */}
                     <div className="flex-1 min-w-0">
-                      {currentView === ViewState.FEED && <Feed posts={posts} setPosts={setPosts} currentUser={currentUser} />}
+                      {currentView === ViewState.FEED && (
+                        <Feed
+                          posts={posts}
+                          setPosts={setPosts}
+                          currentUser={currentUser}
+                          hashtagFilter={hashtagFilter}
+                          setHashtagFilter={setHashtagFilter}
+                        />
+                      )}
                       {currentView === ViewState.JOBS && <Jobs jobs={jobs} setJobs={setJobs} currentUser={currentUser} />}
                       {currentView === ViewState.EVENTS && <Events events={events} setEvents={setEvents} currentUser={currentUser} />}
                       {(currentView === ViewState.COACH || currentView === ViewState.AI_MENTOR) && (
@@ -232,9 +247,20 @@ function App() {
                           <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
                             <h3 className="font-bold text-slate-800 mb-4">Trending Topics</h3>
                             <div className="flex flex-wrap gap-2">
-                              {['#AI', '#Internships', '#ResumeTips', '#Hackathon', '#WebDev'].map(tag => (
-                                <span key={tag} className="text-xs font-medium bg-slate-100 text-slate-600 px-3 py-1.5 rounded-full hover:bg-slate-200 cursor-pointer transition-colors">
-                                  {tag}
+                              {trendingTopics.map(item => (
+                                <span
+                                  key={item.tag}
+                                  onClick={() => {
+                                    setHashtagFilter(item.tag);
+                                    setCurrentView(ViewState.FEED);
+                                  }}
+                                  className={`text-xs font-semibold px-3 py-1.5 rounded-full cursor-pointer transition-colors flex items-center gap-1.5
+                                    ${hashtagFilter === item.tag
+                                      ? 'bg-indigo-650 text-white shadow-sm'
+                                      : 'bg-slate-100 text-slate-650 hover:bg-slate-200'}`}
+                                >
+                                  {item.tag}
+                                  {item.count > 0 && <span className={`text-[10px] ${hashtagFilter === item.tag ? 'text-indigo-100' : 'text-slate-400'}`}>({item.count})</span>}
                                 </span>
                               ))}
                             </div>

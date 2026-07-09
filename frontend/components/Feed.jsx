@@ -1,9 +1,9 @@
 import React, { useState, useRef } from 'react';
-import { MessageSquare, Heart, Share2, Award, Briefcase, Lightbulb, Send, Image, X, Trash2 } from 'lucide-react';
+import { MessageSquare, Heart, Share2, Award, Briefcase, Lightbulb, Send, Image, X, Trash2, Sparkles, Loader2 } from 'lucide-react';
 import { UserRole } from '../types';
-import { createPost, likePost, uploadImage, deletePost } from '../services/api';
+import { createPost, likePost, uploadImage, deletePost, enhancePostText } from '../services/api';
 
-export const Feed = ({ posts, setPosts, currentUser }) => {
+export const Feed = ({ posts, setPosts, currentUser, hashtagFilter, setHashtagFilter }) => {
   const [filter, setFilter] = useState('ALL');
   const [newPostContent, setNewPostContent] = useState('');
   const [newPostType, setNewPostType] = useState('GENERAL');
@@ -15,6 +15,11 @@ export const Feed = ({ posts, setPosts, currentUser }) => {
   const [postImageUrl, setPostImageUrl] = useState('');
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef(null);
+
+  // AI Enhance state
+  const [isEnhancing, setIsEnhancing] = useState(false);
+  const [enhancedPreview, setEnhancedPreview] = useState(null); // null = no preview
+  const [enhanceError, setEnhanceError] = useState('');
 
   const handleShare = (postId) => {
     const shareUrl = `${window.location.origin}/post/${postId}`;
@@ -28,7 +33,42 @@ export const Feed = ({ posts, setPosts, currentUser }) => {
       });
   };
 
+  const handleEnhance = async () => {
+    if (!newPostContent.trim() || isEnhancing) return;
+    setIsEnhancing(true);
+    setEnhanceError('');
+    setEnhancedPreview(null);
+    try {
+      // Map frontend type to backend category
+      const categoryMap = { GENERAL: 'General', ADVICE: 'Career Advice', ACHIEVEMENT: 'Achievement' };
+      const category = categoryMap[newPostType] || 'General';
+      const result = await enhancePostText(newPostContent, category);
+      setEnhancedPreview(result);
+    } catch (err) {
+      console.error('Enhance failed:', err);
+      setEnhanceError(err.message || "Couldn't enhance right now — try again");
+    } finally {
+      setIsEnhancing(false);
+    }
+  };
+
+  const handleUseEnhanced = () => {
+    if (enhancedPreview) {
+      setNewPostContent(enhancedPreview);
+      setEnhancedPreview(null);
+      setEnhanceError('');
+    }
+  };
+
+  const handleDismissEnhanced = () => {
+    setEnhancedPreview(null);
+    setEnhanceError('');
+  };
+
   const filteredPosts = filter === 'ALL' ? posts : posts.filter(post => post.type === filter);
+  const displayedPosts = hashtagFilter
+    ? filteredPosts.filter(post => post.content?.toLowerCase().includes(hashtagFilter.toLowerCase()))
+    : filteredPosts;
 
   const handleImageUploadClick = () => {
     fileInputRef.current?.click();
@@ -135,11 +175,28 @@ export const Feed = ({ posts, setPosts, currentUser }) => {
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold text-slate-800">Community Feed</h1>
+        <div className="flex items-center gap-3">
+          <h1 className="text-2xl font-bold text-slate-800">Community Feed</h1>
+          {hashtagFilter && (
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-indigo-50 text-indigo-700 border border-indigo-150 rounded-full text-xs font-semibold animate-in zoom-in duration-200">
+              Tag: {hashtagFilter}
+              <button 
+                onClick={() => { if (setHashtagFilter) setHashtagFilter(null); }} 
+                className="hover:text-indigo-900 focus:outline-none cursor-pointer"
+                aria-label="Clear Tag Filter"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </span>
+          )}
+        </div>
         <div className="flex gap-2">
           <select
             value={filter}
-            onChange={(e) => setFilter(e.target.value)}
+            onChange={(e) => {
+              setFilter(e.target.value);
+              if (setHashtagFilter) setHashtagFilter(null);
+            }}
             className="bg-white border border-slate-300 text-slate-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
           >
             <option value="ALL">All Posts</option>
@@ -150,8 +207,8 @@ export const Feed = ({ posts, setPosts, currentUser }) => {
         </div>
       </div>
 
-      {/* Create Post Section - Alumni Only */}
-      {currentUser.role === UserRole.GRADUATE && (
+      {/* Create Post Section - Alumni and Students */}
+      {(currentUser.role === UserRole.GRADUATE || currentUser.role === 'alumni' || currentUser.role === UserRole.UNDERGRADUATE || currentUser.role === 'student') && (
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 mb-6">
           <div className="flex gap-3">
             <img src={currentUser.avatar} alt="User" className="w-10 h-10 rounded-full" />
@@ -178,8 +235,42 @@ export const Feed = ({ posts, setPosts, currentUser }) => {
                   </div>
                 )}
 
+                {/* AI Enhanced Preview */}
+                {enhancedPreview && (
+                  <div className="mt-3 bg-indigo-50 border border-indigo-200 rounded-xl p-4 animate-in slide-in-from-top duration-200">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Sparkles className="w-4 h-4 text-indigo-600" />
+                      <span className="text-xs font-bold text-indigo-700 uppercase tracking-wider">AI Suggestion</span>
+                    </div>
+                    <p className="text-sm text-slate-800 whitespace-pre-wrap leading-relaxed">{enhancedPreview}</p>
+                    <div className="flex gap-2 mt-3">
+                      <button
+                        type="button"
+                        onClick={handleUseEnhanced}
+                        className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-lg transition-colors"
+                      >
+                        ✓ Use this
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleDismissEnhanced}
+                        className="px-3 py-1.5 bg-white hover:bg-slate-100 text-slate-600 text-xs font-medium rounded-lg border border-slate-200 transition-colors"
+                      >
+                        Keep original
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Enhance error */}
+                {enhanceError && (
+                  <p className="mt-2 text-xs text-rose-600 flex items-center gap-1">
+                    <X className="w-3 h-3" /> {enhanceError}
+                  </p>
+                )}
+
                 <div className="flex justify-between items-center mt-3">
-                  <div className="flex gap-2">
+                  <div className="flex gap-2 items-center">
                     <select
                       value={newPostType}
                       onChange={(e) => setNewPostType(e.target.value)}
@@ -203,8 +294,28 @@ export const Feed = ({ posts, setPosts, currentUser }) => {
                       onClick={handleImageUploadClick}
                       disabled={isUploading}
                       className="text-slate-400 hover:text-emerald-600 p-1 disabled:opacity-50"
+                      aria-label="Attach image"
                     >
                       <Image className="w-4 h-4" />
+                    </button>
+
+                    {/* AI Enhance button */}
+                    <button
+                      id="enhance-post-btn"
+                      type="button"
+                      onClick={handleEnhance}
+                      disabled={!newPostContent.trim() || isEnhancing || isUploading}
+                      title="Improve writing with AI"
+                      aria-label="Enhance post with AI"
+                      className="flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-semibold transition-all
+                        text-indigo-600 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200
+                        disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
+                      {isEnhancing
+                        ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        : <Sparkles className="w-3.5 h-3.5" />
+                      }
+                      {isEnhancing ? 'Enhancing…' : 'Enhance'}
                     </button>
                   </div>
                   <button
@@ -221,12 +332,12 @@ export const Feed = ({ posts, setPosts, currentUser }) => {
         </div>
       )}
 
-      {filteredPosts.length === 0 ? (
+      {displayedPosts.length === 0 ? (
         <div className="text-center py-12 bg-white rounded-xl border border-slate-200 border-dashed">
           <MessageSquare className="w-8 h-8 text-slate-300 mx-auto mb-3" />
           <p className="text-slate-500 text-sm">No posts found in this category.</p>
         </div>
-      ) : filteredPosts.map((post) => {
+      ) : displayedPosts.map((post) => {
         const isLiked = post.likedBy?.includes(currentUser.id || currentUser._id);
         const isExpanded = expandedPostId === (post.id || post._id);
 

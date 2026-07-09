@@ -11,6 +11,7 @@ import { Event } from '../models/Event.js';
 import { Message } from '../models/Message.js';
 import { JobApplication } from '../models/JobApplication.js';
 import { AdminLog } from '../models/AdminLog.js';
+import { CalendarEvent } from '../models/CalendarEvent.js';
 
 const models = {
     User,
@@ -19,7 +20,8 @@ const models = {
     Event,
     Message,
     JobApplication,
-    AdminLog
+    AdminLog,
+    CalendarEvent
 };
 
 const __filename = fileURLToPath(import.meta.url);
@@ -36,7 +38,8 @@ const initJSONDb = () => {
             events: [],
             messages: [],
             jobapplications: [],
-            adminlogs: []
+            adminlogs: [],
+            calendarevents: []
         };
         fs.writeFileSync(DB_FILE, JSON.stringify(defaultSchema, null, 2), 'utf8');
     }
@@ -84,7 +87,8 @@ const getCollectionKey = (modelName) => {
         Event: 'events',
         Message: 'messages',
         JobApplication: 'jobapplications',
-        AdminLog: 'adminlogs'
+        AdminLog: 'adminlogs',
+        CalendarEvent: 'calendarevents'
     };
     return map[modelName] || modelName.toLowerCase() + 's';
 };

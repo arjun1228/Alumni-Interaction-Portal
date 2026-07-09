@@ -79,6 +79,42 @@ export const signupStudent = async (req, res, next) => {
 
         const newUser = await dataStore.insert('User', studentData);
 
+        // Seed default calendar events for student
+        const now = new Date();
+        const event1Date = new Date();
+        event1Date.setDate(now.getDate() + 30); // 30 days out
+        
+        const event2Date = new Date();
+        event2Date.setDate(now.getDate() + 45); // 45 days out
+
+        const event3Date = new Date();
+        event3Date.setDate(now.getDate() + 90); // 90 days out
+
+        const defaultEvents = [
+            {
+                user: newUser.id || newUser._id,
+                title: 'Mid-Semester Exams',
+                date: event1Date,
+                category: 'Academic'
+            },
+            {
+                user: newUser.id || newUser._id,
+                title: 'Hackathon Registration Deadline',
+                date: event2Date,
+                category: 'Deadline'
+            },
+            {
+                user: newUser.id || newUser._id,
+                title: 'Winter Break Starts',
+                date: event3Date,
+                category: 'Holiday'
+            }
+        ];
+
+        for (const e of defaultEvents) {
+            await dataStore.insert('CalendarEvent', e);
+        }
+
         // Exclude password from response
         const { passwordHash: _, ...userWithoutPassword } = newUser;
         const cleanUserMapped = serializePayload(userWithoutPassword);

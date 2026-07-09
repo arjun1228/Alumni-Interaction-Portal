@@ -16,6 +16,7 @@ import mentorRouter from './routes/mentor.routes.js';
 import usersRouter from './routes/users.routes.js';
 import uploadRouter from './routes/upload.routes.js';
 import adminRouter from './routes/admin.routes.js';
+import calendarRouter from './routes/calendar.routes.js';
 
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -114,6 +115,7 @@ app.use('/api/mentor', mentorRouter);
 app.use('/api/users', usersRouter);
 app.use('/api/upload', uploadRouter);
 app.use('/api/admin', adminRouter);
+app.use('/api/calendar', calendarRouter);
 
 // Scaffold routes to test connection and status
 app.get('/api/db-status', (req, res) => {

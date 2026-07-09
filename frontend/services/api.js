@@ -634,3 +634,91 @@ export const commentPost = async (postId, text) => {
         throw error;
     }
 };
+
+export const fetchCalendarEvents = async (includeAll = false) => {
+    try {
+        const res = await fetch(`${API_URL}/calendar?includeAll=${includeAll}`, {
+            headers: { ...getAuthHeaders() }
+        });
+        if (!res.ok) throw new Error('Failed to fetch calendar events');
+        const json = await res.json();
+        return json.data || json;
+    } catch (error) {
+        console.warn('Failed to fetch calendar events from server', error);
+        return [];
+    }
+};
+
+export const createCalendarEvent = async (eventData) => {
+    const res = await fetch(`${API_URL}/calendar`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            ...getAuthHeaders()
+        },
+        body: JSON.stringify(eventData),
+    });
+    if (!res.ok) {
+        const errJson = await res.json().catch(() => ({}));
+        throw new Error(errJson.message || 'Failed to create calendar event');
+    }
+    const json = await res.json();
+    return json.data || json;
+};
+
+export const updateCalendarEvent = async (eventId, eventData) => {
+    const res = await fetch(`${API_URL}/calendar/${eventId}`, {
+        method: 'PUT',
+        headers: {
+            'Content-Type': 'application/json',
+            ...getAuthHeaders()
+        },
+        body: JSON.stringify(eventData),
+    });
+    if (!res.ok) {
+        const errJson = await res.json().catch(() => ({}));
+        throw new Error(errJson.message || 'Failed to update calendar event');
+    }
+    const json = await res.json();
+    return json.data || json;
+};
+
+export const deleteCalendarEvent = async (eventId) => {
+    const res = await fetch(`${API_URL}/calendar/${eventId}`, {
+        method: 'DELETE',
+        headers: { ...getAuthHeaders() }
+    });
+    if (!res.ok) {
+        const errJson = await res.json().catch(() => ({}));
+        throw new Error(errJson.message || 'Failed to delete calendar event');
+    }
+    return await res.json();
+};
+
+export const fetchTrendingTopics = async () => {
+    try {
+        const res = await fetch(`${API_URL}/posts/trending`);
+        if (!res.ok) throw new Error('Failed to fetch trending topics');
+        const json = await res.json();
+        return json.data || json;
+    } catch (error) {
+        console.warn('Failed to fetch trending topics', error);
+        return [];
+    }
+};
+
+export const enhancePostText = async (text, category = 'General') => {
+    const res = await fetch(`${API_URL}/posts/enhance`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            ...getAuthHeaders()
+        },
+        body: JSON.stringify({ text, category })
+    });
+    const json = await res.json();
+    if (!res.ok) {
+        throw new Error(json.message || 'Failed to enhance post text');
+    }
+    return json.data?.enhanced || '';
+};
