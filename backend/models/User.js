@@ -18,6 +18,7 @@ const userSchema = new mongoose.Schema({
     
     // Student-specific fields
     department: String,
+    course: String,
     yearOfStudy: Number,
     interests: [String],
     resumeLink: String,
@@ -29,6 +30,7 @@ const userSchema = new mongoose.Schema({
     yearsOfExperience: String,
     professionalBio: String,
     skills: [String],
+    willingToMentor: [String],
     approvalStatus: { type: String, enum: ['pending', 'approved', 'rejected'], default: 'pending' },
     referenceToken: String,
     status: { type: String, enum: ['active', 'suspended'], default: 'active' },
