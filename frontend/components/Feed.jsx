@@ -9,11 +9,24 @@ export const Feed = ({ posts, setPosts, currentUser }) => {
   const [newPostType, setNewPostType] = useState('GENERAL');
   const [expandedPostId, setExpandedPostId] = useState(null);
   const [commentText, setCommentText] = useState('');
+  const [copiedPostId, setCopiedPostId] = useState(null);
   
   // Image attachment state
   const [postImageUrl, setPostImageUrl] = useState('');
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef(null);
+
+  const handleShare = (postId) => {
+    const shareUrl = `${window.location.origin}/post/${postId}`;
+    navigator.clipboard.writeText(shareUrl)
+      .then(() => {
+        setCopiedPostId(postId);
+        setTimeout(() => setCopiedPostId(null), 2000);
+      })
+      .catch(err => {
+        console.error('Failed to copy link:', err);
+      });
+  };
 
   const filteredPosts = filter === 'ALL' ? posts : posts.filter(post => post.type === filter);
 
@@ -60,6 +73,7 @@ export const Feed = ({ posts, setPosts, currentUser }) => {
       setPostImageUrl('');
     } catch (error) {
       console.error("Failed to create post", error);
+      alert(error.message || "Failed to save post. Please check your credentials or try again.");
     }
   };
 
@@ -280,12 +294,15 @@ export const Feed = ({ posts, setPosts, currentUser }) => {
                 className={`flex items-center gap-2 transition-colors text-sm font-medium ${isExpanded ? 'text-indigo-600' : 'text-slate-500 hover:text-indigo-600'
                   }`}
               >
-                <MessageSquare className="w-4 h-4" />
+                <MessageSquare className="w-5 h-5" />
                 {post.comments}
               </button>
-              <button className="flex items-center gap-2 text-slate-500 hover:text-slate-800 transition-colors text-sm font-medium ml-auto">
+              <button
+                onClick={() => handleShare(post.id || post._id)}
+                className="flex items-center gap-2 text-slate-500 hover:text-slate-800 transition-colors text-sm font-medium ml-auto"
+              >
                 <Share2 className="w-4 h-4" />
-                Share
+                {copiedPostId === (post.id || post._id) ? 'Link Copied!' : 'Share'}
               </button>
             </div>
 

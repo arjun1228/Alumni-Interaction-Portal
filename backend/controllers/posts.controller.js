@@ -9,7 +9,8 @@ const postCreateSchema = z.object({
     content: z.string().min(1, 'Post content cannot be empty'),
     category: z.enum(['Advice', 'Achievement', 'General'], {
         errorMap: () => ({ message: 'Category must be Advice, Achievement, or General' })
-    })
+    }),
+    image: z.string().optional()
 });
 
 const commentCreateSchema = z.object({
@@ -40,6 +41,30 @@ export const getPosts = async (req, res, next) => {
     }
 };
 
+export const getPost = async (req, res, next) => {
+    try {
+        const postId = req.params.id;
+        const post = await dataStore.findById('Post', postId);
+        if (!post) {
+            return res.status(404).json({
+                success: false,
+                message: 'Post not found.'
+            });
+        }
+        
+        // Populate the author details for the post
+        const resolvedPost = await dataStore.find('Post', { _id: postId }, { populate: 'author' });
+        const mappedPost = serializePayload(resolvedPost[0] || post);
+
+        res.status(200).json({
+            success: true,
+            data: mappedPost
+        });
+    } catch (err) {
+        next(err);
+    }
+};
+
 export const createPost = async (req, res, next) => {
     try {
         const parsed = postCreateSchema.safeParse(req.body);
@@ -51,7 +76,7 @@ export const createPost = async (req, res, next) => {
             });
         }
 
-        const { content, category } = parsed.data;
+        const { content, category, image } = parsed.data;
         const userId = req.user.id || req.user._id;
 
         const postData = {
@@ -61,6 +86,10 @@ export const createPost = async (req, res, next) => {
             likes: [],
             comments: []
         };
+
+        if (image) {
+            postData.image = image;
+        }
 
         const newPost = await dataStore.insert('Post', postData);
         

@@ -10,6 +10,31 @@ const getAuthHeaders = () => {
 // Helper to simulate delay
 const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
+const mapPostFromBackend = (post) => {
+    if (!post) return post;
+    const authorData = post.author || {};
+    return {
+        ...post,
+        id: post.id || post._id,
+        author: {
+            ...authorData,
+            id: authorData.id || authorData._id,
+            avatar: authorData.avatar || authorData.profilePicture || `https://ui-avatars.com/api/?name=${encodeURIComponent(authorData.name || 'User')}&background=random`
+        },
+        type: post.category ? post.category.toUpperCase() : (post.type || 'GENERAL'),
+        likes: Array.isArray(post.likes) ? post.likes.length : (post.likes || 0),
+        likedBy: Array.isArray(post.likes) ? post.likes.map(id => id.toString()) : [],
+        comments: Array.isArray(post.comments) ? post.comments.length : (post.comments || 0),
+        commentsList: Array.isArray(post.comments) ? post.comments.map(c => ({
+            id: c._id || c.id,
+            authorName: c.authorName || (c.author?.name || 'Anonymous'),
+            authorAvatar: c.authorAvatar || c.author?.avatar || c.author?.profilePicture || `https://ui-avatars.com/api/?name=${encodeURIComponent(c.authorName || 'User')}&background=random`,
+            content: c.text,
+            timestamp: c.createdAt ? new Date(c.createdAt).toLocaleDateString() : 'Just now'
+        })) : []
+    };
+};
+
 export const fetchPosts = async () => {
     try {
         const res = await fetch(`${API_URL}/posts`, {
@@ -17,30 +42,80 @@ export const fetchPosts = async () => {
         });
         if (!res.ok) throw new Error('Failed to fetch posts');
         const json = await res.json();
-        return json.data || json;
+        const data = json.data || json;
+        return data.map(mapPostFromBackend);
     } catch (error) {
         console.warn('Network error: Falling back to mock data for Posts', error);
         return INITIAL_POSTS;
     }
 };
 
-export const createPost = async (postData) => {
-    try {
-        const res = await fetch(`${API_URL}/posts`, {
-            method: 'POST',
-            headers: { 
-                'Content-Type': 'application/json',
-                ...getAuthHeaders()
-            },
-            body: JSON.stringify(postData),
-        });
-        if (!res.ok) throw new Error('Failed to create post');
-        const json = await res.json();
-        return json.data || json;
-    } catch (error) {
-        console.warn('Network error: Creating post locally only', error);
-        return { ...postData, id: `local_${Date.now()}` };
+export const fetchSinglePost = async (postId) => {
+    const res = await fetch(`${API_URL}/posts/${postId}`, {
+        headers: { ...getAuthHeaders() }
+    });
+    if (!res.ok) {
+        const errJson = await res.json().catch(() => ({}));
+        throw new Error(errJson.message || 'Failed to fetch post');
     }
+    const json = await res.json();
+    return mapPostFromBackend(json.data || json);
+};
+
+export const fetchCurrentUser = async () => {
+    try {
+        const token = localStorage.getItem('token');
+        if (!token) return null;
+        const res = await fetch(`${API_URL}/auth/me`, {
+            headers: { ...getAuthHeaders() }
+        });
+        if (!res.ok) throw new Error('Token verification failed');
+        const json = await res.json();
+        const user = json.data || json;
+        return {
+            ...user,
+            id: user.id || user._id,
+            avatar: user.avatar || user.profilePicture || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name || 'User')}&background=random`
+        };
+    } catch (error) {
+        console.warn('Auto-login failed', error);
+        localStorage.removeItem('token');
+        return null;
+    }
+};
+
+export const createPost = async (postData) => {
+    // Map frontend 'type' (e.g. 'ACHIEVEMENT') to backend 'category' (e.g. 'Achievement')
+    const typeToCategory = {
+        'ACHIEVEMENT': 'Advice', // Default mappings fallback
+        'ADVICE': 'Advice',
+        'GENERAL': 'General'
+    };
+    if (postData.type === 'ACHIEVEMENT') {
+        typeToCategory['ACHIEVEMENT'] = 'Achievement';
+    }
+
+    const payload = {
+        content: postData.content,
+        category: typeToCategory[postData.type] || 'General',
+        image: postData.image
+    };
+
+    const res = await fetch(`${API_URL}/posts`, {
+        method: 'POST',
+        headers: { 
+            'Content-Type': 'application/json',
+            ...getAuthHeaders()
+        },
+        body: JSON.stringify(payload),
+    });
+    if (!res.ok) {
+        const errJson = await res.json().catch(() => ({}));
+        throw new Error(errJson.message || 'Failed to create post');
+    }
+    const json = await res.json();
+    const data = json.data || json;
+    return mapPostFromBackend(data);
 };
 
 export const fetchJobs = async () => {
@@ -222,16 +297,11 @@ export const likePost = async (postId, userId) => {
         });
         if (!res.ok) throw new Error('Failed to like post');
         const json = await res.json();
-        return json.data || json;
+        const data = json.data || json;
+        return mapPostFromBackend(data);
     } catch (error) {
         console.warn('Network error: Liking post locally only', error);
-        const mockPost = INITIAL_POSTS.find(p => p.id === postId);
-        if (mockPost) {
-            const hasLiked = mockPost.likedBy.includes(userId);
-            const newLikes = hasLiked ? mockPost.likes - 1 : mockPost.likes + 1;
-            return { ...mockPost, likes: newLikes, likedBy: hasLiked ? [] : [userId] };
-        }
-        return { id: postId, likes: 0, likedBy: [userId] };
+        throw error;
     }
 };
 
@@ -543,4 +613,24 @@ export const deletePost = async (postId) => {
         throw new Error(errJson.message || 'Failed to delete post');
     }
     return await res.json();
+};
+
+export const commentPost = async (postId, text) => {
+    try {
+        const res = await fetch(`${API_URL}/posts/${postId}/comments`, {
+            method: 'POST',
+            headers: { 
+                'Content-Type': 'application/json',
+                ...getAuthHeaders()
+            },
+            body: JSON.stringify({ text }),
+        });
+        if (!res.ok) throw new Error('Failed to comment on post');
+        const json = await res.json();
+        const data = json.data || json;
+        return mapPostFromBackend(data);
+    } catch (error) {
+        console.warn('Network error: Commenting on post failed', error);
+        throw error;
+    }
 };

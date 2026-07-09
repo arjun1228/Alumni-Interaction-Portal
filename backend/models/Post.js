@@ -13,6 +13,7 @@ const postSchema = new mongoose.Schema({
     category: { type: String, enum: ['Advice', 'Achievement', 'General'], required: true },
     likes: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
     comments: [commentSchema],
+    image: String,
     isPinned: { type: Boolean, default: false },
     pinnedAt: Date
 }, { timestamps: true });
