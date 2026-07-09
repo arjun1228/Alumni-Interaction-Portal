@@ -256,6 +256,21 @@ export const suspendUser = async (req, res, next) => {
             });
         }
 
+        if (user.role === 'admin') {
+            return res.status(403).json({
+                success: false,
+                message: 'Forbidden: Admins cannot suspend other admin accounts.'
+            });
+        }
+
+        const currentAdminId = (req.user.id || req.user._id).toString();
+        if (userId === currentAdminId) {
+            return res.status(403).json({
+                success: false,
+                message: 'Forbidden: You cannot suspend your own account.'
+            });
+        }
+
         const { reason } = req.body;
         if (!reason) {
             return res.status(400).json({

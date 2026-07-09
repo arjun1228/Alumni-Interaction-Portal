@@ -51,6 +51,7 @@ function App() {
 
   const [hashtagFilter, setHashtagFilter] = useState(null);
   const [trendingTopics, setTrendingTopics] = useState([]);
+  const [loadError, setLoadError] = useState(null);
 
   useEffect(() => {
     fetchCurrentUser()
@@ -62,13 +63,21 @@ function App() {
       .catch(console.error)
       .finally(() => setLoadingUser(false));
 
-    fetchPosts().then(setPosts).catch(console.error);
-    fetchJobs().then(setJobs).catch(console.error);
-    fetchEvents().then(setEvents).catch(console.error);
+    const handleLoadError = (err) => {
+      console.error(err);
+      setLoadError("Couldn't load the latest data — check your connection and try refreshing.");
+    };
+
+    fetchPosts().then(setPosts).catch(handleLoadError);
+    fetchJobs().then(setJobs).catch(handleLoadError);
+    fetchEvents().then(setEvents).catch(handleLoadError);
   }, []);
 
   useEffect(() => {
-    fetchTrendingTopics().then(setTrendingTopics).catch(console.error);
+    fetchTrendingTopics().then(setTrendingTopics).catch((err) => {
+      console.error(err);
+      setLoadError("Couldn't load the latest data — check your connection and try refreshing.");
+    });
   }, [posts]);
 
   const handleLogout = () => {
@@ -196,6 +205,17 @@ function App() {
                 </div>
 
                 <div className="p-4 md:p-8 max-w-7xl mx-auto">
+                  {loadError && (
+                    <div className="mb-6 bg-red-50 border-l-4 border-red-500 p-4 rounded-r-lg flex justify-between items-center shadow-sm">
+                      <div className="flex items-center gap-3">
+                        <div className="text-red-500 font-medium">⚠️</div>
+                        <p className="text-sm text-red-700">{loadError}</p>
+                      </div>
+                      <button onClick={() => setLoadError(null)} className="text-red-400 hover:text-red-600">
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  )}
                   <div className="flex flex-col lg:flex-row gap-6">
                     {/* Main View Area */}
                     <div className="flex-1 min-w-0">

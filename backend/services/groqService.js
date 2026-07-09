@@ -3,8 +3,8 @@ import Groq from 'groq-sdk';
 let groq = null;
 
 export const generateCompletion = async ({ systemPrompt, messages, temperature = 0.7 }) => {
-  if (!process.env.GROQ_API_KEY) {
-    throw new Error('GROQ_API_KEY is not configured on the server.');
+  if (!process.env.GROQ_API_KEY || process.env.GROQ_API_KEY === 'your_groq_api_key_here') {
+    throw new Error('GROQ_API_KEY is not configured correctly on the server (placeholder detected).');
   }
 
   if (!groq) {
