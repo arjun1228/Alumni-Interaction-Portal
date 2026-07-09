@@ -280,7 +280,7 @@ export const AcademicCalendar = () => {
 
       {/* Full Schedule Modal */}
       {showFullSchedule && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-100 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl w-full max-w-lg max-h-[80vh] overflow-y-auto shadow-2xl border border-slate-200 flex flex-col animate-in zoom-in duration-200">
             <div className="p-5 border-b border-slate-100 flex justify-between items-center sticky top-0 bg-white z-10">
               <div className="flex items-center gap-2">

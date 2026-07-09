@@ -452,7 +452,7 @@ export const AuthScreen = ({ onLogin }) => {
 
         {/* Right Side - Interactive Selection */}
         <div className="hidden md:flex bg-slate-900 relative overflow-hidden order-1 md:order-2 flex-col justify-center p-12 text-white">
-          <div className={`absolute inset-0 bg-gradient-to-br transition-all duration-500 ${activeTab === UserRole.UNDERGRADUATE ? 'from-indigo-600 to-purple-700' : activeTab === UserRole.GRADUATE ? 'from-emerald-600 to-teal-800' : 'from-slate-700 to-slate-900'} opacity-90`}></div>
+          <div className={`absolute inset-0 bg-linear-to-br transition-all duration-500 ${activeTab === UserRole.UNDERGRADUATE ? 'from-indigo-600 to-purple-700' : activeTab === UserRole.GRADUATE ? 'from-emerald-600 to-teal-800' : 'from-slate-700 to-slate-900'} opacity-90`}></div>
           <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1543269865-cbf427effbad?ixlib=rb-1.2.1&auto=format&fit=crop&w=1350&q=80')] bg-cover bg-center mix-blend-overlay opacity-50"></div>
 
           <div className="relative z-10 space-y-8">

@@ -126,7 +126,7 @@ export const AICoach = () => {
   return (
     <div className="flex flex-col h-[calc(100vh-6rem)] bg-white rounded-2xl shadow-lg border border-slate-200 overflow-hidden">
       {/* Header */}
-      <div className="bg-gradient-to-r from-indigo-600 to-purple-600 p-4 flex items-center gap-3">
+      <div className="bg-linear-to-r from-indigo-600 to-purple-600 p-4 flex items-center gap-3">
         <div className="bg-white/20 p-2 rounded-full backdrop-blur-sm">
           <Bot className="w-6 h-6 text-white" />
         </div>
