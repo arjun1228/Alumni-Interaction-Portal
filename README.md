@@ -1,4 +1,4 @@
-﻿<div align="center">
+<div align="center">
 
 # 🎓 AlumniConnect Portal
 
@@ -348,15 +348,7 @@ npm run dev
 
 ---
 
-## 🔐 Default Seed Login Credentials
 
-| Role | Email | Password |
-| :--- | :--- | :--- |
-| **Admin** | `admin@college.edu` | `password123` |
-| **Student** | `emily.wong@university.edu` | `password123` |
-| **Alumni** | `sarah.jenkins@example.com` | `password123` |
-
----
 
 ## 💡 Database Mode Auto-Switching
 
@@ -370,14 +362,4 @@ The `backend/services/dataStore.js` service seeds and manages `backend/data.json
 
 ---
 
-## 🔍 Verifying the Frontend Build
 
-After any Vite, Tailwind CSS, or dependency changes:
-
-```bash
-npm run build --prefix frontend
-```
-
-Check `frontend/dist/assets/index-*.css`:
-- ✅ **Healthy:** File size **40+ kB** — Tailwind utilities compiled correctly.
-- ⚠️ **Warning:** File size **10–12 kB or less** — Tailwind content scanner is misconfigured.
