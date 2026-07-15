@@ -3,6 +3,7 @@ import { dataStore } from '../services/dataStore.js';
 import { serializePayload } from '../utils/roleMapper.js';
 import { canModify } from '../utils/permissions.js';
 import { logAdminAction } from '../utils/adminLogger.js';
+import { generateCompletion } from '../services/groqService.js';
 
 const eventSchemaVal = z.object({
     title: z.string().min(1, 'Event title is required'),
@@ -10,8 +11,14 @@ const eventSchemaVal = z.object({
         errorMap: () => ({ message: 'Event type must be WEBINAR, HACKATHON, WORKSHOP, or MEETUP' })
     }),
     description: z.string().min(1, 'Description is required'),
-    dateTime: z.string().refine(val => !isNaN(Date.parse(val)), {
-        message: 'Invalid date time format'
+    dateTime: z.string().refine(val => {
+        const parsed = Date.parse(val);
+        if (isNaN(parsed)) return false;
+        const year = new Date(parsed).getFullYear();
+        const currentYear = new Date().getFullYear();
+        return year >= currentYear && year <= currentYear + 5;
+    }, {
+        message: 'Event date must be within the current year and the next 5 years'
     })
 });
 
@@ -319,6 +326,7 @@ export const cancelRsvp = async (req, res, next) => {
             return res.status(400).json({ success: false, message: 'You have not RSVPed to this event.' });
         }
 
+
         const updatedEvent = await dataStore.update('Event', { _id: eventId }, {
             $pull: { attendees: userId }
         });
@@ -327,6 +335,47 @@ export const cancelRsvp = async (req, res, next) => {
         const mappedEvent = serializePayload(resolved[0] || updatedEvent);
 
         res.status(200).json({ success: true, data: mappedEvent });
+    } catch (err) {
+        next(err);
+    }
+};
+
+export const enhanceDescription = async (req, res, next) => {
+    try {
+        const { description } = req.body;
+        if (!description || typeof description !== 'string' || description.trim().length < 5) {
+            return res.status(400).json({
+                success: false,
+                message: 'Please provide at least a few words for the AI to enhance.'
+            });
+        }
+
+        // Guard: cap to 2000 characters to avoid excessive token usage
+        const cappedText = description.trim().slice(0, 2000);
+
+        const systemPrompt =
+            "You are a writing assistant helping a university alumni platform user write a clear, engaging event description for a webinar, hackathon, workshop, or meetup. " +
+            "Improve clarity and structure while preserving the original meaning and any specific details (dates, times, requirements) the user included. " +
+            "Keep it concise. Return only the improved description text, nothing else.";
+
+        const enhanced = await generateCompletion({
+            systemPrompt,
+            messages: [{ role: 'user', content: cappedText }],
+            temperature: 0.4
+        });
+
+        // generateCompletion returns a rate-limit message string instead of throwing on 429
+        if (enhanced.includes('temporarily busy')) {
+            return res.status(429).json({
+                success: false,
+                message: 'AI enhancement is temporarily busy — please try again shortly.'
+            });
+        }
+
+        res.status(200).json({
+            success: true,
+            data: { enhanced: enhanced.trim() }
+        });
     } catch (err) {
         next(err);
     }

@@ -195,12 +195,39 @@ export const fetchEvents = async () => {
 
 export const createEvent = async (eventData) => {
     try {
+        let parsedDateTime;
+        try {
+            const dateStr = eventData.date; // YYYY-MM-DD
+            const timeStr = eventData.time; // e.g. 6:00 PM EST
+            const regex = /(\d{1,2}):(\d{2})\s*(AM|PM)?/i;
+            const match = timeStr.match(regex);
+            let hours = 12;
+            let minutes = 0;
+            if (match) {
+                hours = parseInt(match[1], 10);
+                minutes = parseInt(match[2], 10);
+                const ampm = match[3];
+                if (ampm) {
+                    if (ampm.toUpperCase() === 'PM' && hours < 12) {
+                        hours += 12;
+                    } else if (ampm.toUpperCase() === 'AM' && hours === 12) {
+                        hours = 0;
+                    }
+                }
+            }
+            const dateObj = new Date(dateStr);
+            dateObj.setHours(hours, minutes, 0, 0);
+            parsedDateTime = dateObj.toISOString();
+        } catch (e) {
+            parsedDateTime = new Date(`${eventData.date} ${eventData.time}`).toISOString();
+        }
+
         // Adapt fields from React Events form to backend Event model expected schema
         const payload = {
             title: eventData.title,
             type: eventData.type,
             description: eventData.description,
-            dateTime: new Date(`${eventData.date} ${eventData.time}`).toISOString(),
+            dateTime: parsedDateTime,
             coverImage: eventData.image
         };
 
@@ -229,6 +256,70 @@ export const createEvent = async (eventData) => {
     }
 };
 
+export const updateEvent = async (eventId, eventData) => {
+    try {
+        let parsedDateTime;
+        try {
+            const dateStr = eventData.date; // YYYY-MM-DD
+            const timeStr = eventData.time; // e.g. 6:00 PM EST
+            const regex = /(\d{1,2}):(\d{2})\s*(AM|PM)?/i;
+            const match = timeStr.match(regex);
+            let hours = 12;
+            let minutes = 0;
+            if (match) {
+                hours = parseInt(match[1], 10);
+                minutes = parseInt(match[2], 10);
+                const ampm = match[3];
+                if (ampm) {
+                    if (ampm.toUpperCase() === 'PM' && hours < 12) {
+                        hours += 12;
+                    } else if (ampm.toUpperCase() === 'AM' && hours === 12) {
+                        hours = 0;
+                    }
+                }
+            }
+            const dateObj = new Date(dateStr);
+            dateObj.setHours(hours, minutes, 0, 0);
+            parsedDateTime = dateObj.toISOString();
+        } catch (e) {
+            parsedDateTime = new Date(`${eventData.date} ${eventData.time}`).toISOString();
+        }
+
+        const payload = {
+            title: eventData.title,
+            type: eventData.type,
+            description: eventData.description,
+            dateTime: parsedDateTime,
+            coverImage: eventData.image
+        };
+
+        const res = await fetch(`${API_URL}/events/${eventId}`, {
+            method: 'PUT',
+            headers: { 
+                'Content-Type': 'application/json',
+                ...getAuthHeaders()
+            },
+            body: JSON.stringify(payload),
+        });
+        if (!res.ok) throw new Error('Failed to update event');
+        const json = await res.json();
+        const e = json.data || json;
+        return {
+            ...e,
+            id: e.id || e._id,
+            image: e.coverImage || e.image,
+            attendees: typeof e.attendeeCount === 'number' ? e.attendeeCount : (Array.isArray(e.attendees) ? e.attendees.length : 0),
+            attendeesList: e.attendees || [],
+            date: eventData.date,
+            time: eventData.time
+        };
+    } catch (error) {
+        console.warn('Network error: Updating event locally only', error);
+        return { ...eventData, id: eventId };
+    }
+};
+
+
 export const rsvpEvent = async (eventId, userId) => {
     try {
         const res = await fetch(`${API_URL}/events/${eventId}/rsvp`, {
@@ -239,12 +330,15 @@ export const rsvpEvent = async (eventId, userId) => {
             },
             body: JSON.stringify({ userId }),
         });
-        if (!res.ok) throw new Error('Failed to RSVP to event');
+        if (!res.ok) {
+            const json = await res.json().catch(() => ({}));
+            throw new Error(json.message || 'Failed to RSVP to event');
+        }
         const json = await res.json();
         return json.data || json;
     } catch (error) {
-        console.warn('Network error: RSVPing to event locally only', error);
-        return { success: true };
+        console.warn('Network error: RSVPing to event', error);
+        throw error;
     }
 };
 
@@ -468,6 +562,24 @@ export const sendMessage = async (messageData) => {
         return { ...messageData, id: `local_${Date.now()}` };
     }
 };
+
+export const sendMessageToUser = async (userId, text) => {
+    const res = await fetch(`${API_URL}/messages/${userId}`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            ...getAuthHeaders()
+        },
+        body: JSON.stringify({ text })
+    });
+    if (!res.ok) {
+        const errJson = await res.json().catch(() => ({}));
+        throw new Error(errJson.message || 'Failed to send message');
+    }
+    const json = await res.json();
+    return json.data || json;
+};
+
 
 export const fetchAdminStudents = async () => {
     try {
@@ -719,6 +831,22 @@ export const enhancePostText = async (text, category = 'General') => {
     const json = await res.json();
     if (!res.ok) {
         throw new Error(json.message || 'Failed to enhance post text');
+    }
+    return json.data?.enhanced || '';
+};
+
+export const enhanceEventDescription = async (description) => {
+    const res = await fetch(`${API_URL}/events/enhance-description`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            ...getAuthHeaders()
+        },
+        body: JSON.stringify({ description })
+    });
+    const json = await res.json();
+    if (!res.ok) {
+        throw new Error(json.message || 'Failed to enhance event description');
     }
     return json.data?.enhanced || '';
 };

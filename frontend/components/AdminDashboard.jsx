@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { Users, Activity, Search, School, GraduationCap, MessageSquare, LogOut, Briefcase, Calendar, ClipboardList, Menu, X } from 'lucide-react';
-import { fetchAdminStudents, fetchAdminActivities, fetchAdminAlumni } from '../services/api';
+import { fetchAdminStudents, fetchAdminActivities, fetchAdminAlumni, sendMessageToUser } from '../services/api';
 import { Feed } from './Feed';
 import { Jobs } from './Jobs';
 import { Events } from './Events';
+import { useToast } from './Toast';
 
 export const AdminDashboard = ({ currentUser, posts, setPosts, jobs, setJobs, events, setEvents, onNavigate, onChat, onLogout }) => {
+    const toast = useToast();
     const [activeView, setActiveView] = useState('STUDENTS');
     const [students, setStudents] = useState([]);
     const [alumni, setAlumni] = useState([]);
@@ -13,6 +15,11 @@ export const AdminDashboard = ({ currentUser, posts, setPosts, jobs, setJobs, ev
     const [isLoading, setIsLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+
+    // Message Composing state
+    const [messageTargetUser, setMessageTargetUser] = useState(null);
+    const [messageText, setMessageText] = useState('');
+    const [isSendingMessage, setIsSendingMessage] = useState(false);
 
     useEffect(() => {
         const fetchData = async () => {
@@ -66,9 +73,8 @@ export const AdminDashboard = ({ currentUser, posts, setPosts, jobs, setJobs, ev
     });
 
     const handleMessage = (user) => {
-        if (onChat) {
-            onChat(user);
-        }
+        setMessageTargetUser(user);
+        setMessageText('');
     };
 
     return (
@@ -505,6 +511,86 @@ export const AdminDashboard = ({ currentUser, posts, setPosts, jobs, setJobs, ev
                     )}
                 </div>
             </main>
+
+            {/* COMPOSE OUTREACH MESSAGE MODAL */}
+            {messageTargetUser && (
+                <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+                    <div className="bg-white rounded-2xl w-full max-w-md shadow-xl border border-slate-200 overflow-hidden animate-in zoom-in duration-200">
+                        <div className="p-6 border-b border-slate-100 flex justify-between items-center">
+                            <h3 className="font-bold text-slate-900 text-lg">Message {messageTargetUser.name}</h3>
+                            <button 
+                                onClick={() => setMessageTargetUser(null)} 
+                                className="text-slate-400 hover:text-slate-600 transition-colors p-1"
+                            >
+                                <X className="w-5 h-5" />
+                            </button>
+                        </div>
+                        <form onSubmit={async (e) => {
+                            e.preventDefault();
+                            if (!messageText.trim()) return;
+                            setIsSendingMessage(true);
+                            try {
+                                await sendMessageToUser(messageTargetUser.id || messageTargetUser._id, messageText);
+                                toast('Message sent successfully! ✉️', 'success');
+                                setMessageTargetUser(null);
+                            } catch (err) {
+                                console.error(err);
+                                toast(err.message || 'Failed to send message.', 'error');
+                            } finally {
+                                setIsSendingMessage(false);
+                            }
+                        }} className="p-6 space-y-4">
+                            <div>
+                                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Select Template</label>
+                                <div className="space-y-1.5">
+                                    {[
+                                        { label: "Custom Message (Blank)", text: "" },
+                                        { label: "Resume Improvement", text: "Your resume could use some improvements — consider updating it for better opportunities." },
+                                        { label: "Profile Completion", text: "Please complete your profile to get the most out of AlumniConnect." },
+                                        { label: "Inactivity Check", text: "We noticed some inactivity on your account — let us know if you need any help." }
+                                    ].map((tpl, i) => (
+                                        <button
+                                            key={i}
+                                            type="button"
+                                            onClick={() => setMessageText(tpl.text)}
+                                            className="w-full text-left text-xs bg-slate-50 hover:bg-indigo-50 hover:text-indigo-700 px-3 py-2 rounded-lg border border-slate-200 transition-all font-semibold"
+                                        >
+                                            {tpl.label}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                            <div>
+                                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Message Body</label>
+                                <textarea
+                                    required
+                                    rows={4}
+                                    value={messageText}
+                                    onChange={(e) => setMessageText(e.target.value)}
+                                    placeholder="Type your message here..."
+                                    className="w-full border border-slate-200 rounded-xl p-3 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all bg-white text-slate-800"
+                                />
+                            </div>
+                            <div className="flex justify-end gap-3 pt-2">
+                                <button 
+                                    type="button" 
+                                    onClick={() => setMessageTargetUser(null)} 
+                                    className="px-4 py-2 text-sm font-semibold text-slate-500 hover:text-slate-700"
+                                >
+                                    Cancel
+                                </button>
+                                <button 
+                                    type="submit" 
+                                    disabled={isSendingMessage || !messageText.trim()}
+                                    className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-xl text-sm font-semibold transition-colors disabled:opacity-50"
+                                >
+                                    {isSendingMessage ? 'Sending...' : 'Send Message'}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

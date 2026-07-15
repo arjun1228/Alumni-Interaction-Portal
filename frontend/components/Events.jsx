@@ -1,13 +1,14 @@
 import React, { useState } from 'react';
-import { Calendar, Users, Video, MapPin, Clock, Plus, X, Upload, CheckCircle, Trash2 } from 'lucide-react';
+import { Calendar, Users, Video, MapPin, Clock, Plus, X, Upload, CheckCircle, Trash2, Sparkles, Loader2, Edit } from 'lucide-react';
 import { UserRole } from '../types';
-import { createEvent, rsvpEvent, uploadImage, deleteEvent, cancelRsvpEvent } from '../services/api';
+import { createEvent, rsvpEvent, uploadImage, deleteEvent, cancelRsvpEvent, enhanceEventDescription, updateEvent } from '../services/api';
 import { useToast } from './Toast';
 
 export const Events = ({ events, setEvents, currentUser }) => {
    const toast = useToast();
    const [selectedEvent, setSelectedEvent] = useState(null);
    const [isCreating, setIsCreating] = useState(false);
+   const [editingEvent, setEditingEvent] = useState(null);
 
    // New Event Form State
    const [title, setTitle] = useState('');
@@ -18,11 +19,16 @@ export const Events = ({ events, setEvents, currentUser }) => {
    
    // RSVP State
    const [isRegistering, setIsRegistering] = useState(false);
-   const [successMessage, setSuccessMessage] = useState('');
 
    // Image Upload State
    const [coverUrl, setCoverUrl] = useState('');
    const [isUploading, setIsUploading] = useState(false);
+
+   // AI Enhance description state
+   const [isEnhancing, setIsEnhancing] = useState(false);
+   const [enhancedPreview, setEnhancedPreview] = useState(null);
+   const [enhanceError, setEnhanceError] = useState('');
+   const [dateError, setDateError] = useState('');
 
     const handleDeleteEvent = async (eventId) => {
        if (window.confirm("Delete this event posting permanently?")) {
@@ -51,8 +57,90 @@ export const Events = ({ events, setEvents, currentUser }) => {
       }
    };
 
+   const resetForm = () => {
+      setTitle('');
+      setDescription('');
+      setDate('');
+      setTime('');
+      setCoverUrl('');
+      setEnhancedPreview(null);
+      setEnhanceError('');
+      setDateError('');
+      setEditingEvent(null);
+   };
+
+   const handleEditClick = (event) => {
+      setEditingEvent(event);
+      setTitle(event.title || '');
+      
+      let formattedDate = '';
+      if (event.dateTime) {
+         try {
+            formattedDate = new Date(event.dateTime).toISOString().substring(0, 10);
+         } catch (e) {
+            formattedDate = event.date || '';
+         }
+      } else {
+         formattedDate = event.date || '';
+      }
+      setDate(formattedDate);
+
+      let formattedTime = event.time || '';
+      if (!formattedTime && event.dateTime) {
+         try {
+            formattedTime = new Date(event.dateTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+         } catch (e) {}
+      }
+      setTime(formattedTime);
+      
+      setType(event.type || 'WEBINAR');
+      setDescription(event.description || '');
+      setCoverUrl(event.image || event.coverImage || '');
+      setIsCreating(true);
+   };
+
+   const handleEnhanceDescription = async () => {
+      if (!description.trim() || isEnhancing) return;
+      setIsEnhancing(true);
+      setEnhanceError('');
+      setEnhancedPreview(null);
+      try {
+         const result = await enhanceEventDescription(description);
+         setEnhancedPreview(result);
+      } catch (err) {
+         console.error('Enhance description failed:', err);
+         setEnhanceError(err.message || "Couldn't enhance right now — try again");
+      } finally {
+         setIsEnhancing(false);
+      }
+   };
+
+   const handleUseEnhancedDescription = () => {
+      if (enhancedPreview) {
+         setDescription(enhancedPreview);
+         setEnhancedPreview(null);
+         setEnhanceError('');
+         toast('✨ Enhanced description applied!', 'info', 2000);
+      }
+   };
+
+   const handleDismissEnhancedDescription = () => {
+      setEnhancedPreview(null);
+      setEnhanceError('');
+   };
+
    const handleCreateEvent = async (e) => {
       e.preventDefault();
+      
+      const selectedDate = new Date(date);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      if (selectedDate < today && !editingEvent) {
+         setDateError('Event date cannot be in the past');
+         toast('Event date cannot be in the past.', 'error');
+         return;
+      }
+
       const eventData = {
          title,
          date,
@@ -60,24 +148,27 @@ export const Events = ({ events, setEvents, currentUser }) => {
          type,
          description,
          organizer: currentUser,
-         attendees: 0,
+         attendees: editingEvent ? (editingEvent.attendees || 0) : 0,
          image: coverUrl || `https://picsum.photos/seed/${Date.now()}/600/300`
       };
 
       try {
-         const savedEvent = await createEvent(eventData);
-         setEvents([savedEvent, ...events]);
-         setIsCreating(false);
-         // Reset Form
-         setTitle('');
-         setDescription('');
-         setDate('');
-         setTime('');
-         setCoverUrl('');
-         toast(`Event "${savedEvent.title || title}" created! 🎉`, 'success');
+         if (editingEvent) {
+            const savedEvent = await updateEvent(editingEvent.id || editingEvent._id, eventData);
+            setEvents(events.map(ev => (ev.id === editingEvent.id || ev._id === editingEvent._id) ? savedEvent : ev));
+            setIsCreating(false);
+            resetForm();
+            toast(`Event "${savedEvent.title || title}" updated! 🎉`, 'success');
+         } else {
+            const savedEvent = await createEvent(eventData);
+            setEvents([savedEvent, ...events]);
+            setIsCreating(false);
+            resetForm();
+            toast(`Event "${savedEvent.title || title}" created! 🎉`, 'success');
+         }
       } catch (error) {
-         console.error("Failed to create event", error);
-         toast(error.message || 'Failed to create event.', 'error');
+         console.error("Failed to save event", error);
+         toast(error.message || 'Failed to save event.', 'error');
       }
    };
 
@@ -85,13 +176,22 @@ export const Events = ({ events, setEvents, currentUser }) => {
       setIsRegistering(true);
       try {
          await rsvpEvent(eventId, currentUser.id || currentUser._id);
-         setSuccessMessage('Successfully registered!');
          toast('🎉 You\'re registered for this event!', 'success');
          
+         const currentUserId = currentUser.id || currentUser._id;
+
          // Update events list locally
          setEvents(events.map(ev => {
             if (ev.id === eventId || ev._id === eventId) {
-               return { ...ev, attendees: (ev.attendees || 0) + 1 };
+               const updatedList = [...(ev.attendeesList || [])];
+               if (!updatedList.includes(currentUserId)) {
+                  updatedList.push(currentUserId);
+               }
+               return { 
+                  ...ev, 
+                  attendees: (ev.attendees || 0) + 1,
+                  attendeesList: updatedList
+               };
             }
             return ev;
          }));
@@ -99,13 +199,20 @@ export const Events = ({ events, setEvents, currentUser }) => {
          // Update modal details
          setSelectedEvent(prev => {
             if (prev && (prev.id === eventId || prev._id === eventId)) {
-               return { ...prev, attendees: (prev.attendees || 0) + 1 };
+               const updatedList = [...(prev.attendeesList || [])];
+               if (!updatedList.includes(currentUserId)) {
+                  updatedList.push(currentUserId);
+               }
+               return { 
+                  ...prev, 
+                  attendees: (prev.attendees || 0) + 1,
+                  attendeesList: updatedList
+               };
             }
             return prev;
          });
 
          setTimeout(() => {
-            setSuccessMessage('');
             setSelectedEvent(null);
          }, 1500);
       } catch (error) {
@@ -120,7 +227,7 @@ export const Events = ({ events, setEvents, currentUser }) => {
       setIsRegistering(true);
       try {
          await cancelRsvpEvent(eventId);
-         setSuccessMessage('RSVP cancelled successfully!');
+         toast('RSVP cancelled successfully!', 'info');
          
          const currentUserId = currentUser.id || currentUser._id;
          // Update events list locally
@@ -150,7 +257,6 @@ export const Events = ({ events, setEvents, currentUser }) => {
          });
 
          setTimeout(() => {
-            setSuccessMessage('');
             setSelectedEvent(null);
          }, 1500);
       } catch (error) {
@@ -162,14 +268,6 @@ export const Events = ({ events, setEvents, currentUser }) => {
 
    return (
       <div className="space-y-6">
-         {/* Success Message Banner */}
-         {successMessage && (
-            <div className="fixed top-5 right-5 bg-emerald-50 text-emerald-800 border border-emerald-200 px-4 py-3 rounded-xl shadow-lg z-100 flex items-center gap-2 animate-bounce">
-               <CheckCircle className="w-5 h-5 text-emerald-600" />
-               <span className="font-semibold">{successMessage}</span>
-            </div>
-         )}
-
          <div className="flex justify-between items-center">
             <div>
                <h1 className="text-2xl font-bold text-slate-800">Upcoming Events</h1>
@@ -203,19 +301,35 @@ export const Events = ({ events, setEvents, currentUser }) => {
                         <div className="absolute top-3 left-3 bg-white/90 backdrop-blur-sm px-3 py-1 rounded-full text-xs font-bold text-indigo-700">
                            {event.type}
                         </div>
-                        {(currentUser.role?.toLowerCase() === 'admin') && (
-                           <button
-                              onClick={(e) => {
-                                 e.stopPropagation();
-                                 handleDeleteEvent(event.id || event._id);
-                              }}
-                              className="absolute top-3 right-3 bg-red-600 hover:bg-red-700 text-white p-1.5 rounded-full shadow-md transition-colors"
-                              title="Delete Event"
-                              aria-label="Delete Event"
-                           >
-                              <Trash2 className="w-4 h-4" />
-                           </button>
+                        {(currentUser.role?.toLowerCase() === 'admin' || (event.organizer && (event.organizer._id || event.organizer.id || event.organizer) === (currentUser._id || currentUser.id))) && (
+                           <div className="absolute top-3 right-3 flex gap-2">
+                              <button
+                                 onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleEditClick(event);
+                                 }}
+                                 className="bg-white/95 hover:bg-white text-indigo-600 p-1.5 rounded-full shadow-md transition-colors"
+                                 title="Edit Event"
+                                 aria-label="Edit Event"
+                              >
+                                 <Edit className="w-4 h-4" />
+                              </button>
+                              {(currentUser.role?.toLowerCase() === 'admin') && (
+                                 <button
+                                    onClick={(e) => {
+                                       e.stopPropagation();
+                                       handleDeleteEvent(event.id || event._id);
+                                    }}
+                                    className="bg-red-600 hover:bg-red-700 text-white p-1.5 rounded-full shadow-md transition-colors"
+                                    title="Delete Event"
+                                    aria-label="Delete Event"
+                                 >
+                                    <Trash2 className="w-4 h-4" />
+                                 </button>
+                              )}
+                           </div>
                         )}
+
                      </div>
                      <div className="p-5">
                         <div className="flex gap-3 text-sm text-slate-500 mb-2">
@@ -276,7 +390,28 @@ export const Events = ({ events, setEvents, currentUser }) => {
                      <div className="flex justify-end gap-3 border-t border-slate-100 pt-6">
                         <button onClick={() => setSelectedEvent(null)} className="px-5 py-2.5 text-slate-600 font-medium">Close</button>
                         {(() => {
+                           const currentUserId = currentUser.id || currentUser._id;
+                           const isOrganizer = selectedEvent.organizer && (selectedEvent.organizer.id || selectedEvent.organizer._id || selectedEvent.organizer) === currentUserId;
+                           const isAdmin = currentUser.role?.toLowerCase() === 'admin';
+                           
+                           if (isOrganizer || isAdmin) {
+                              return (
+                                 <button
+                                    onClick={() => {
+                                       setSelectedEvent(null);
+                                       handleEditClick(selectedEvent);
+                                    }}
+                                    className="px-5 py-2.5 bg-indigo-600 text-white rounded-xl font-medium hover:bg-indigo-700 transition-colors animate-in fade-in"
+                                 >
+                                    Edit Event
+                                 </button>
+                              );
+                           }
+                           return null;
+                        })()}
+                        {(() => {
                            if (currentUser.role === UserRole.GRADUATE || currentUser.role?.toLowerCase() === 'admin') {
+
                               return (
                                  <button onClick={() => setSelectedEvent(null)} className="px-5 py-2.5 bg-indigo-600 text-white rounded-xl font-medium hover:bg-indigo-700">
                                     Close Info
@@ -292,8 +427,9 @@ export const Events = ({ events, setEvents, currentUser }) => {
                                     disabled={isRegistering}
                                     className="px-5 py-2.5 bg-red-600 text-white rounded-xl font-medium hover:bg-red-700 disabled:opacity-50 transition-colors"
                                  >
-                                    {isRegistering ? 'Cancelling...' : 'Cancel RSVP'}
+                                    {isRegistering ? 'Cancelling...' : 'Cancel Registration'}
                                  </button>
+
                               );
                            }
                            return (
@@ -318,8 +454,9 @@ export const Events = ({ events, setEvents, currentUser }) => {
                <div className="bg-white rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto animate-in zoom-in duration-200">
                   <form onSubmit={handleCreateEvent} className="p-6">
                      <div className="flex justify-between items-center mb-6">
-                        <h2 className="text-xl font-bold text-slate-800">Create New Event</h2>
-                        <button type="button" onClick={() => setIsCreating(false)} className="text-slate-400 hover:text-slate-600">
+                        <h2 className="text-xl font-bold text-slate-800">{editingEvent ? 'Edit Event' : 'Create New Event'}</h2>
+
+                        <button type="button" onClick={() => { setIsCreating(false); resetForm(); }} className="text-slate-400 hover:text-slate-600">
                            <X className="w-6 h-6" />
                         </button>
                      </div>
@@ -331,7 +468,36 @@ export const Events = ({ events, setEvents, currentUser }) => {
                         <div className="grid grid-cols-2 gap-4">
                            <div>
                               <label className="block text-sm font-medium text-slate-700 mb-1">Date</label>
-                              <input required type="text" value={date} onChange={e => setDate(e.target.value)} placeholder="Oct 24, 2023" className="w-full bg-slate-50 text-slate-900 border rounded-lg p-2.5" />
+                              <input 
+                                 required 
+                                 type="date" 
+                                 min={new Date().toISOString().split('T')[0]}
+                                 max={(() => {
+                                    const d = new Date();
+                                    d.setFullYear(d.getFullYear() + 5);
+                                    return d.toISOString().split('T')[0];
+                                 })()}
+                                 value={date} 
+
+                                 onChange={e => {
+                                    const val = e.target.value;
+                                    setDate(val);
+                                    if (val) {
+                                       const selectedDate = new Date(val);
+                                       const today = new Date();
+                                       today.setHours(0,0,0,0);
+                                       if (selectedDate < today) {
+                                          setDateError('Event date cannot be in the past');
+                                       } else {
+                                          setDateError('');
+                                       }
+                                    } else {
+                                       setDateError('');
+                                    }
+                                 }} 
+                                 className={`w-full bg-slate-50 text-slate-900 border rounded-lg p-2.5 ${dateError ? 'border-red-500 focus:ring-red-500' : 'focus:ring-indigo-500'}`} 
+                              />
+                              {dateError && <p className="text-red-500 text-xs mt-1">{dateError}</p>}
                            </div>
                            <div>
                               <label className="block text-sm font-medium text-slate-700 mb-1">Time</label>
@@ -369,13 +535,64 @@ export const Events = ({ events, setEvents, currentUser }) => {
                            )}
                         </div>
                         <div>
-                           <label className="block text-sm font-medium text-slate-700 mb-1">Description</label>
-                           <textarea required value={description} onChange={e => setDescription(e.target.value)} rows={4} className="w-full bg-slate-50 text-slate-900 border rounded-lg p-2.5 focus:ring-2 focus:ring-indigo-500"></textarea>
+                            <div className="flex justify-between items-center mb-1">
+                               <label className="block text-sm font-medium text-slate-700">Description</label>
+                               <button
+                                  type="button"
+                                  onClick={handleEnhanceDescription}
+                                  disabled={!description.trim() || isEnhancing || isUploading}
+                                  className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold transition-all
+                                     text-indigo-600 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200
+                                     disabled:opacity-40 disabled:cursor-not-allowed"
+                                  title="Improve writing with AI"
+                                  aria-label="Enhance description with AI"
+                               >
+                                  {isEnhancing ? (
+                                     <Loader2 className="w-3 h-3 animate-spin" />
+                                  ) : (
+                                     <Sparkles className="w-3 h-3" />
+                                  )}
+                                  {isEnhancing ? 'Enhancing...' : 'Enhance'}
+                               </button>
+                            </div>
+                            <textarea required value={description} onChange={e => setDescription(e.target.value)} rows={4} className="w-full bg-slate-50 text-slate-900 border rounded-lg p-2.5 focus:ring-2 focus:ring-indigo-500"></textarea>
+                            
+                            {enhancedPreview && (
+                               <div className="mt-2 bg-indigo-50 border border-indigo-200 rounded-xl p-3 animate-in slide-in-from-top duration-200">
+                                  <div className="flex items-center gap-1.5 mb-1.5">
+                                     <Sparkles className="w-3.5 h-3.5 text-indigo-600" />
+                                     <span className="text-xs font-bold text-indigo-700 uppercase tracking-wider">AI Suggestion</span>
+                                  </div>
+                                  <p className="text-xs text-slate-800 whitespace-pre-wrap leading-relaxed">{enhancedPreview}</p>
+                                  <div className="flex gap-2 mt-2.5">
+                                     <button
+                                        type="button"
+                                        onClick={handleUseEnhancedDescription}
+                                        className="px-2.5 py-1 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-lg transition-colors"
+                                     >
+                                        ✓ Use this
+                                     </button>
+                                     <button
+                                        type="button"
+                                        onClick={handleDismissEnhancedDescription}
+                                        className="px-2.5 py-1 bg-white hover:bg-slate-100 text-slate-600 text-xs font-medium rounded-lg border border-slate-200 transition-colors"
+                                     >
+                                        Keep original
+                                     </button>
+                                  </div>
+                               </div>
+                            )}
+
+                            {enhanceError && (
+                               <p className="mt-1 text-xs text-rose-600 flex items-center gap-1">
+                                  <X className="w-3 h-3" /> {enhanceError}
+                               </p>
+                            )}
                         </div>
                      </div>
                      <div className="mt-6 flex justify-end gap-3">
-                        <button type="button" onClick={() => setIsCreating(false)} className="px-4 py-2 text-slate-600 font-medium">Cancel</button>
-                        <button type="submit" disabled={isUploading} className="px-4 py-2 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700 disabled:opacity-50">Publish Event</button>
+                        <button type="button" onClick={() => { setIsCreating(false); resetForm(); }} className="px-4 py-2 text-slate-600 font-medium">Cancel</button>
+                        <button type="submit" disabled={isUploading || isEnhancing || !!dateError} className="px-4 py-2 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700 disabled:opacity-50">Publish Event</button>
                      </div>
                   </form>
                </div>

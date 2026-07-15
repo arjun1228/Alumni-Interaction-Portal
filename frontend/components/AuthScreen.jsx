@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { School, Briefcase, GraduationCap, ArrowRight, Loader2, CheckCircle, AlertCircle, Mail, ShieldCheck, RefreshCw } from 'lucide-react';
+import { School, Briefcase, GraduationCap, ArrowRight, Loader2, CheckCircle, AlertCircle, Mail, ShieldCheck, RefreshCw, Info, Eye, EyeOff, Check, X as XIcon } from 'lucide-react';
 import { UserRole } from '../types';
 import { loginUser, registerStudent, registerAlumni } from '../services/api';
 import { useToast } from './Toast';
@@ -21,6 +21,15 @@ export const AuthScreen = ({ onLogin }) => {
   const [error, setError] = useState('');
   const [pendingUser, setPendingUser] = useState(null);
   const [verificationToken, setVerificationToken] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+
+  // Live password requirements checklist
+  const passwordChecks = [
+    { label: 'At least 8 characters', met: password.length >= 8 },
+    { label: 'One uppercase letter', met: /[A-Z]/.test(password) },
+    { label: 'One number', met: /[0-9]/.test(password) },
+    { label: 'One special character (!@#$%^&*)', met: /[^A-Za-z0-9]/.test(password) },
+  ];
 
   // Password Strength Logic
   const getPasswordStrength = (pass) => {
@@ -124,22 +133,18 @@ export const AuthScreen = ({ onLogin }) => {
         name,
         email,
         role: activeTab,
-        title: title || (isStudent ? 'Student' : 'Alumni'),
+        title: isStudent ? 'Student' : (title || 'Alumni'),
         university: isStudent ? orgName : undefined,
         company: !isStudent ? orgName : undefined,
         avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=random`,
-        department: isStudent ? 'Computer Science' : undefined,
-        yearOfStudy: isStudent ? 3 : undefined,
-        course: isStudent ? 'B.Tech CS' : undefined,
-        interests: isStudent ? ['AI/ML', 'Web Development', 'Cloud Computing'] : undefined,
-        skills: isStudent ? ['Java', 'Python', 'React'] : ['System Design', 'Leadership', 'Cloud Architecture'],
-        experience: isStudent
-          ? 'Winner of Campus Hackathon 2023. Built a project management tool using React.'
-          : undefined,
-        bio: !isStudent
-          ? `Experienced professional working at ${orgName}. passionate about mentoring.`
-          : undefined,
-        location: 'San Francisco, CA'
+        department: '',
+        yearOfStudy: null,
+        course: '',
+        interests: [],
+        skills: [],
+        experience: '',
+        bio: '',
+        location: ''
       };
 
       setPendingUser(newUser);
@@ -166,20 +171,20 @@ export const AuthScreen = ({ onLogin }) => {
           name: pendingUser.name,
           email: pendingUser.email.toLowerCase(),
           password: password,
-          department: pendingUser.department || 'Computer Science',
-          yearOfStudy: pendingUser.yearOfStudy || 3,
-          interests: pendingUser.interests || []
+          department: '',
+          yearOfStudy: null,
+          interests: []
         });
       } else {
         await registerAlumni({
           name: pendingUser.name,
           email: pendingUser.email.toLowerCase(),
           password: password,
-          currentCompany: pendingUser.company || 'TechCorp',
-          jobTitle: pendingUser.title || 'Software Engineer',
-          yearsOfExperience: '3 Years',
-          professionalBio: pendingUser.bio || 'Alumni member',
-          skills: pendingUser.skills || []
+          currentCompany: pendingUser.company || '',
+          jobTitle: pendingUser.title || '',
+          yearsOfExperience: '',
+          professionalBio: '',
+          skills: []
         });
       }
 
@@ -385,14 +390,37 @@ export const AuthScreen = ({ onLogin }) => {
 
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Password</label>
-              <input
-                required
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all"
-                placeholder="••••••••"
-              />
+              <div className="relative">
+                <input
+                  required
+                  type={showPassword ? 'text' : 'password'}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="w-full px-4 py-3 pr-12 rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all"
+                  placeholder="••••••••"
+                />
+                {showPassword ? (
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(false)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors p-1"
+                    aria-label="Hide password"
+                    tabIndex={-1}
+                  >
+                    <EyeOff className="w-4 h-4" />
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(true)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors p-1"
+                    aria-label="Show password"
+                    tabIndex={-1}
+                  >
+                    <Eye className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
 
               {/* Password Strength Indicator */}
               {view === 'REGISTER' && password.length > 0 && (
@@ -408,8 +436,20 @@ export const AuthScreen = ({ onLogin }) => {
                   </div>
                   <p className={`text-xs font-medium ${strengthConfig.text} flex justify-between items-center`}>
                     <span>Strength: {strengthConfig.label}</span>
-                    {strengthScore < 4 && <span className="text-slate-400 font-normal hidden sm:inline">Use 8+ chars, numbers & symbols</span>}
                   </p>
+
+                  {/* Live Requirements Checklist */}
+                  <ul className="mt-2.5 space-y-1">
+                    {passwordChecks.map((check) => (
+                      <li key={check.label} className={`flex items-center gap-2 text-xs transition-colors duration-200 ${check.met ? 'text-emerald-600' : 'text-slate-400'}`}>
+                        {check.met
+                          ? <Check className="w-3.5 h-3.5 shrink-0" />
+                          : <XIcon className="w-3.5 h-3.5 shrink-0" />
+                        }
+                        {check.label}
+                      </li>
+                    ))}
+                  </ul>
                 </div>
               )}
             </div>
@@ -440,9 +480,9 @@ export const AuthScreen = ({ onLogin }) => {
           </div>
 
           {view === 'LOGIN' && (
-            <div className="mt-8 p-4 bg-slate-50 rounded-xl text-xs text-slate-500 border border-slate-100">
-              <p className="font-bold mb-2">Hackathon Demo Credentials:</p>
-              <div className="flex justify-between">
+            <div className="mt-8 p-4 bg-slate-50 rounded-xl text-xs text-slate-500 border border-slate-100 flex items-start gap-2.5">
+              <Info className="h-4 w-4 text-slate-400 shrink-0 mt-0.5" />
+              <div className="flex-1 flex justify-between">
                 <span>Use <strong>.edu</strong> for Student tab.</span>
                 <span>Use standard email for Alumni tab.</span>
               </div>

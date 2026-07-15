@@ -62,9 +62,6 @@ export const Network = ({ currentUser, onNavigate, onChat }) => {
         <div>
           <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-3">
             {isStudentView ? 'Find Mentors & Peers' : 'Community Directory'}
-            <span className="text-xs font-semibold text-slate-500 bg-slate-100 border border-slate-200 px-3 py-1 rounded-full">
-              {usersList.length} members in DB
-            </span>
           </h1>
           <p className="text-slate-500 mt-1">
             {isStudentView 

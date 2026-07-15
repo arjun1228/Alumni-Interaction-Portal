@@ -8,7 +8,7 @@ const router = express.Router();
 router.get('/', getPosts);
 router.get('/trending', getTrendingTopics);
 router.get('/:id', getPost);
-router.post('/', authenticate, createPost);
+router.post('/', authenticate, authorize('alumni', 'admin'), createPost);
 router.post('/enhance', authenticate, enhancePost);
 router.delete('/:id', authenticate, deletePost);
 router.post('/:id/like', authenticate, likePost);

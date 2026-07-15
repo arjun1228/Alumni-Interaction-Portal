@@ -83,3 +83,11 @@ body {
     transform: scale(1);
   }
 }
+
+/* Hide native show/hide password buttons in Edge/Chrome */
+input::-ms-reveal,
+input::-ms-clear,
+input::-webkit-contacts-auto-fill-button,
+input::-webkit-credentials-auto-fill-button {
+  display: none !important;
+}

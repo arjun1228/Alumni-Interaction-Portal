@@ -1,5 +1,5 @@
 import express from 'express';
-import { getEvents, getEventById, createEvent, rsvpEvent, getAttendees, deleteEvent, updateEvent, removeAttendee, cancelRsvp } from '../controllers/events.controller.js';
+import { getEvents, getEventById, createEvent, rsvpEvent, getAttendees, deleteEvent, updateEvent, removeAttendee, cancelRsvp, enhanceDescription } from '../controllers/events.controller.js';
 import { authenticate } from '../middleware/authenticate.js';
 import { authorize, alumniApproved } from '../middleware/authorize.js';
 
@@ -12,6 +12,9 @@ const router = express.Router();
 
 router.get('/', getEvents);
 router.get('/:id', getEventById);
+
+// AI Enhance Event Description: Protected
+router.post('/enhance-description', authenticate, enhanceDescription);
 
 // Create Event: Protected (restricted to approved alumni or college admins only)
 router.post('/', authenticate, authorize('alumni', 'admin'), alumniApproved, createEvent);

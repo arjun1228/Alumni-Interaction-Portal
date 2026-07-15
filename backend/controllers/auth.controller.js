@@ -5,13 +5,24 @@ import { dataStore } from '../services/dataStore.js';
 import { serializePayload } from '../utils/roleMapper.js';
 
 // Schemas for input validation
+const passwordSchema = z.string().superRefine((val, ctx) => {
+    const errors = [];
+    if (val.length < 8) errors.push('Password must be at least 8 characters');
+    if (!/[A-Z]/.test(val)) errors.push('Password must contain at least one uppercase letter');
+    if (!/[0-9]/.test(val)) errors.push('Password must contain at least one number');
+    if (!/[^A-Za-z0-9]/.test(val)) errors.push('Password must contain at least one special character (!@#$%^&*)');
+    for (const msg of errors) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message: msg });
+    }
+});
+
 const studentSignupSchema = z.object({
     name: z.string().min(1, 'Name is required'),
     email: z.string().email('Invalid email address').refine(
         (val) => val.toLowerCase().endsWith('.edu'),
         { message: 'Student accounts require a valid .edu email address' }
     ),
-    password: z.string().min(6, 'Password must be at least 6 characters'),
+    password: passwordSchema,
     department: z.string().optional(),
     yearOfStudy: z.number().min(1).max(4).optional(),
     interests: z.array(z.string()).optional(),
@@ -21,7 +32,7 @@ const studentSignupSchema = z.object({
 const alumniSignupSchema = z.object({
     name: z.string().min(1, 'Name is required'),
     email: z.string().email('Invalid email address'),
-    password: z.string().min(6, 'Password must be at least 6 characters'),
+    password: passwordSchema,
     currentCompany: z.string().min(1, 'Company is required'),
     jobTitle: z.string().min(1, 'Job Title is required'),
     yearsOfExperience: z.string().optional(),
@@ -70,8 +81,8 @@ export const signupStudent = async (req, res, next) => {
             role: 'student',
             isVerified: false,
             verificationToken,
-            department: department || 'Computer Science',
-            yearOfStudy: yearOfStudy || 1,
+            department: department || '',
+            yearOfStudy: yearOfStudy || null,
             interests: interests || [],
             resumeLink: resumeLink || '',
             projectShowcase: []

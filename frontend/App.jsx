@@ -164,12 +164,16 @@ function App() {
                     <NavItem view={ViewState.JOBS} icon={Briefcase} label="Jobs & Internships" />
                     <NavItem view={ViewState.EVENTS} icon={Calendar} label="Events & Workshops" />
                     <NavItem view={ViewState.COACH || ViewState.AI_MENTOR} icon={Sparkles} label="AI Career Mentor" />
-                    <NavItem view={ViewState.PROFILE} icon={UserCircle} label="My Profile" />
                     <NavItem view={ViewState.NETWORK} icon={Users} label="Network" />
                     <NavItem view={ViewState.MESSAGES} icon={MessageSquare} label={isStudent ? "Mentors" : "Messages"} />
                     {(currentUser.role === UserRole.GRADUATE || currentUser.role === 'alumni') && (
                       <NavItem view={ViewState.ANALYTICS} icon={BarChart2} label="Analytics" />
                     )}
+                  </div>
+
+                  <div className="space-y-2 mt-6">
+                    <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider px-4 mb-2">Account</div>
+                    <NavItem view={ViewState.PROFILE} icon={UserCircle} label="My Profile" />
                   </div>
                 </div>
 

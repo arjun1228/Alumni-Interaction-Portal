@@ -15,6 +15,8 @@ const userSchema = new mongoose.Schema({
     isVerified: { type: Boolean, default: false },
     verificationToken: String,
     lastLoginAt: Date,
+    resumeLink: String,
+    resumeName: String,
     
     // Student-specific fields
     department: String,

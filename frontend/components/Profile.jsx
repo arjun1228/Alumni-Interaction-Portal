@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { UserRole } from '../types';
-import { MapPin, Mail, BookOpen, Calendar, Briefcase, Award, Download, Building2, Code2, GraduationCap, Edit2, X, MessageSquare, ExternalLink, Plus, Trash2 } from 'lucide-react';
-import { updateUser } from '../services/api';
+import { MapPin, Mail, BookOpen, Calendar, Briefcase, Award, Download, Building2, Code2, GraduationCap, Edit2, X, MessageSquare, ExternalLink, Plus, Trash2, Loader2 } from 'lucide-react';
+import { updateUser, uploadImage } from '../services/api';
 
 export const Profile = ({ user, onUpdateUser, onNavigate, onChat, readOnly = false, isSidebar = false }) => {
   const isStudent = user.role === UserRole.UNDERGRADUATE || user.role === 'student' || user.role === UserRole.STUDENT;
@@ -26,6 +26,8 @@ export const Profile = ({ user, onUpdateUser, onNavigate, onChat, readOnly = fal
 
   // Student specific editing state
   const [editResumeName, setEditResumeName] = useState(user.resumeName || '');
+  const [editResumeLink, setEditResumeLink] = useState(user.resumeLink || '');
+  const [isUploadingResume, setIsUploadingResume] = useState(false);
   const [editInterests, setEditInterests] = useState(user.interests || []);
   const [newInterest, setNewInterest] = useState('');
 
@@ -40,6 +42,22 @@ export const Profile = ({ user, onUpdateUser, onNavigate, onChat, readOnly = fal
   // Alumni mentoring fields
   const [editWillingToMentor, setEditWillingToMentor] = useState(user.willingToMentor || ['System Design', 'Career Growth', 'Interview Prep']);
   const [newMentorTopic, setNewMentorTopic] = useState('');
+
+  const handleResumeFileChange = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setIsUploadingResume(true);
+    try {
+      const url = await uploadImage(file);
+      setEditResumeLink(url);
+      setEditResumeName(file.name);
+    } catch (err) {
+      console.error('Failed to upload resume:', err);
+      alert('Failed to upload resume. Please try again.');
+    } finally {
+      setIsUploadingResume(false);
+    }
+  };
 
   const handleAddInterest = () => {
     if (!newInterest.trim()) return;
@@ -101,7 +119,7 @@ export const Profile = ({ user, onUpdateUser, onNavigate, onChat, readOnly = fal
     const updatedData = {
       ...user,
       name: editName,
-      title: editTitle,
+      title: isStudent ? 'Student' : editTitle,
       bio: editBio,
       location: editLocation,
       company: editCompany,
@@ -109,6 +127,7 @@ export const Profile = ({ user, onUpdateUser, onNavigate, onChat, readOnly = fal
       yearsOfExperience: editExperience,
       projects: editProjects,
       resumeName: editResumeName,
+      resumeLink: editResumeLink,
       interests: editInterests,
       skills: editSkills,
       willingToMentor: editWillingToMentor,
@@ -165,10 +184,19 @@ export const Profile = ({ user, onUpdateUser, onNavigate, onChat, readOnly = fal
 
           <div>
             <h1 className={isSidebar ? "text-lg font-bold text-slate-900" : "text-2xl font-bold text-slate-900"}>{user.name}</h1>
-            <p className="text-slate-600 font-medium flex items-center gap-2 mt-1">
-              {isStudent ? <GraduationCap className="w-4 h-4" /> : <Briefcase className="w-4 h-4" />}
-              {user.title} {user.university && `at ${user.university}`}
-            </p>
+            {!isStudent && (user.jobTitle || user.currentCompany) ? (
+              <p className="text-slate-600 font-medium flex items-center gap-2 mt-1 text-sm">
+                <Briefcase className="w-4 h-4 text-slate-400" />
+                {user.jobTitle && user.currentCompany
+                  ? `${user.jobTitle} at ${user.currentCompany}`
+                  : (user.jobTitle || user.currentCompany)}
+              </p>
+            ) : null}
+            {user.createdAt && (
+              <p className="text-slate-500 text-sm flex items-center gap-2 mt-1">
+                <Calendar className="w-3 h-3" /> Joined {new Date(user.createdAt).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+              </p>
+            )}
             {user.location && (
               <p className="text-slate-500 text-sm flex items-center gap-2 mt-1">
                 <MapPin className="w-3 h-3" /> {user.location}
@@ -195,25 +223,40 @@ export const Profile = ({ user, onUpdateUser, onNavigate, onChat, readOnly = fal
             </div>
 
             {/* Resume Link */}
-            <div className="mt-6 pt-6 border-t border-slate-100">
-              <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg border border-slate-200">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-red-100 text-red-600 rounded-lg flex items-center justify-center">
-                    <span className="font-bold text-xs">PDF</span>
+            {user.resumeLink && (
+              <div className="mt-6 pt-6 border-t border-slate-100 animate-in fade-in">
+                <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg border border-slate-200">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-red-100 text-red-600 rounded-lg flex items-center justify-center">
+                      <span className="font-bold text-xs">PDF</span>
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold text-slate-800">{user.resumeName || `${user.name.split(' ')[0]}'s Resume.pdf`}</p>
+                      <p className="text-xs text-slate-500">Updated recently</p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-sm font-semibold text-slate-800">{user.resumeName || `${user.name.split(' ')[0]}'s Resume.pdf`}</p>
-                    <p className="text-xs text-slate-500">Updated recently</p>
+                  <div className="flex items-center gap-2">
+                    <a 
+                      href={user.resumeLink.startsWith('http') ? user.resumeLink : `http://127.0.0.1:5000${user.resumeLink}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="p-1.5 bg-white border border-slate-200 text-slate-600 hover:text-indigo-600 rounded-lg transition-all flex items-center gap-1 text-xs font-semibold"
+                      title="View Resume"
+                    >
+                      <ExternalLink className="w-4 h-4" /> View
+                    </a>
+                    <a 
+                      href={user.resumeLink.startsWith('http') ? user.resumeLink : `http://127.0.0.1:5000${user.resumeLink}`}
+                      download={user.resumeName || `${user.name.split(' ')[0]}_Resume.pdf`}
+                      className="p-1.5 bg-white border border-slate-200 text-slate-600 hover:text-indigo-600 rounded-lg transition-all flex items-center gap-1 text-xs font-semibold"
+                      title="Download Resume"
+                    >
+                      <Download className="w-4 h-4" /> Download
+                    </a>
                   </div>
                 </div>
-                <button 
-                  onClick={() => alert(`Downloading: ${user.resumeName || `${user.name.split(' ')[0]}'s Resume.pdf`}`)} 
-                  className="text-slate-400 hover:text-indigo-600"
-                >
-                  <Download className="w-5 h-5" />
-                </button>
               </div>
-            </div>
+            )}
           </div>
 
           {/* Project Showcase */}
@@ -316,21 +359,21 @@ export const Profile = ({ user, onUpdateUser, onNavigate, onChat, readOnly = fal
                   <Building2 className="w-5 h-5 text-slate-400 mt-0.5" />
                   <div>
                     <p className="text-sm font-semibold text-slate-800">Department</p>
-                    <p className="text-sm text-slate-600">{user.department || 'General Engineering'}</p>
+                    <p className="text-sm text-slate-600">{user.department || 'Not specified'}</p>
                   </div>
                 </li>
                 <li className="flex items-start gap-3">
                   <BookOpen className="w-5 h-5 text-slate-400 mt-0.5" />
                   <div>
                     <p className="text-sm font-semibold text-slate-800">Course</p>
-                    <p className="text-sm text-slate-600">{user.course || 'B.Tech Computer Science'}</p>
+                    <p className="text-sm text-slate-600">{user.course || 'Not specified'}</p>
                   </div>
                 </li>
                 <li className="flex items-start gap-3">
                   <Calendar className="w-5 h-5 text-slate-400 mt-0.5" />
                   <div>
                     <p className="text-sm font-semibold text-slate-800">Year of Study</p>
-                    <p className="text-sm text-slate-600">Year {user.yearOfStudy || 1}</p>
+                    <p className="text-sm text-slate-600">{user.yearOfStudy ? `Year ${user.yearOfStudy}` : 'Not specified'}</p>
                   </div>
                 </li>
                 <li className="flex items-start gap-3">
@@ -409,36 +452,66 @@ export const Profile = ({ user, onUpdateUser, onNavigate, onChat, readOnly = fal
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">Full Name</label>
-                  <input required type="text" value={editName} onChange={e => setEditName(e.target.value)} className="w-full border rounded-lg p-2.5 focus:ring-2 focus:ring-indigo-500" />
+                  <input required type="text" value={editName} onChange={e => setEditName(e.target.value)} className="w-full border rounded-lg p-2.5 focus:ring-2 focus:ring-indigo-500 bg-white" />
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">{isStudent ? 'Major' : 'Job Title'}</label>
-                    <input required type="text" value={editTitle} onChange={e => setEditTitle(e.target.value)} className="w-full border rounded-lg p-2.5 focus:ring-2 focus:ring-indigo-500" />
-                  </div>
-                  <div>
+                  {!isStudent ? (
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Job Title</label>
+                      <input required type="text" value={editTitle} onChange={e => setEditTitle(e.target.value)} className="w-full border rounded-lg p-2.5 focus:ring-2 focus:ring-indigo-500 bg-white" />
+                    </div>
+                  ) : null}
+                  <div className={isStudent ? "col-span-2" : ""}>
                     <label className="block text-sm font-medium text-slate-700 mb-1">Location</label>
-                    <input required type="text" value={editLocation} onChange={e => setEditLocation(e.target.value)} className="w-full border rounded-lg p-2.5 focus:ring-2 focus:ring-indigo-500" />
+                    <input required type="text" value={editLocation} onChange={e => setEditLocation(e.target.value)} className="w-full border rounded-lg p-2.5 focus:ring-2 focus:ring-indigo-500 bg-white" />
                   </div>
                 </div>
 
                 {/* Alumni Specific Edit Fields */}
                 {!isStudent && (
-                  <div className="p-4 bg-emerald-50 rounded-xl space-y-4 border border-emerald-100">
+                  <div className="p-4 bg-emerald-50 rounded-xl space-y-4 border border-emerald-100 animate-in fade-in">
                     <h3 className="text-sm font-bold text-emerald-800 border-b border-emerald-200 pb-2">Role Details</h3>
                     <div>
                       <label className="block text-sm font-medium text-slate-700 mb-1">Company</label>
-                      <input type="text" value={editCompany} onChange={e => setEditCompany(e.target.value)} className="w-full border rounded-lg p-2.5" />
+                      <input type="text" value={editCompany} onChange={e => setEditCompany(e.target.value)} className="w-full border rounded-lg p-2.5 bg-white" />
                     </div>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-1">Department</label>
-                        <input type="text" value={editDepartment} onChange={e => setEditDepartment(e.target.value)} className="w-full border rounded-lg p-2.5" />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-1">Experience (Yrs)</label>
-                        <input type="text" value={editExperience} onChange={e => setEditExperience(e.target.value)} placeholder="e.g. 5+ Years" className="w-full border rounded-lg p-2.5" />
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Experience (Yrs)</label>
+                      <input type="text" value={editExperience} onChange={e => setEditExperience(e.target.value)} placeholder="e.g. 5+ Years" className="w-full border rounded-lg p-2.5 bg-white" />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Professional Bio</label>
+                      <textarea value={editBio} onChange={e => setEditBio(e.target.value)} rows={4} className="w-full border rounded-lg p-2.5 focus:ring-2 focus:ring-emerald-500 bg-white" placeholder="Write a short professional bio..."></textarea>
+                    </div>
+
+                    {/* Resume Upload for Alumni */}
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1 flex items-center gap-2">
+                        Resume File (.pdf)
+                        {isUploadingResume && <Loader2 className="w-3.5 h-3.5 text-emerald-600 animate-spin" />}
+                      </label>
+                      <div className="flex items-center gap-3">
+                        <input
+                          type="file"
+                          accept=".pdf"
+                          id="resume-file-input-alumni"
+                          className="hidden"
+                          onChange={handleResumeFileChange}
+                        />
+                        <label
+                          htmlFor="resume-file-input-alumni"
+                          className="cursor-pointer px-4 py-2 bg-white border rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50 border-slate-200 hover:border-slate-300 transition-colors flex items-center gap-2"
+                        >
+                          <Download className="w-4 h-4 text-slate-400 rotate-180" />
+                          {editResumeName ? 'Change Resume' : 'Upload Resume'}
+                        </label>
+                        {editResumeName && (
+                          <span className="text-xs text-slate-500 font-medium truncate max-w-[200px]" title={editResumeName}>
+                            {editResumeName}
+                          </span>
+                        )}
                       </div>
                     </div>
 
@@ -534,7 +607,7 @@ export const Profile = ({ user, onUpdateUser, onNavigate, onChat, readOnly = fal
 
                 {/* Student Specific Edit Fields */}
                 {isStudent && (
-                  <div className="p-4 bg-slate-50 rounded-xl space-y-4 border border-slate-100">
+                  <div className="p-4 bg-slate-50 rounded-xl space-y-4 border border-slate-100 animate-in fade-in">
                     <h3 className="text-sm font-bold text-slate-700 border-b border-slate-200 pb-2">Student Profile Details</h3>
 
                     {/* Academic Details Edit Fields */}
@@ -623,21 +696,20 @@ export const Profile = ({ user, onUpdateUser, onNavigate, onChat, readOnly = fal
 
                     {/* Resume Upload Selection */}
                     <div>
-                      <label className="block text-sm font-medium text-slate-700 mb-1">Resume File (.pdf)</label>
+                      <label className="block text-sm font-medium text-slate-700 mb-1 flex items-center gap-2">
+                        Resume File (.pdf)
+                        {isUploadingResume && <Loader2 className="w-3.5 h-3.5 text-indigo-600 animate-spin" />}
+                      </label>
                       <div className="flex items-center gap-3">
                         <input
                           type="file"
                           accept=".pdf"
-                          id="resume-file-input"
+                          id="resume-file-input-student"
                           className="hidden"
-                          onChange={e => {
-                            if (e.target.files && e.target.files[0]) {
-                              setEditResumeName(e.target.files[0].name);
-                            }
-                          }}
+                          onChange={handleResumeFileChange}
                         />
                         <label
-                          htmlFor="resume-file-input"
+                          htmlFor="resume-file-input-student"
                           className="cursor-pointer px-4 py-2 bg-white border rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50 border-slate-200 hover:border-slate-300 transition-colors flex items-center gap-2"
                         >
                           <Download className="w-4 h-4 text-slate-400 rotate-180" />
@@ -697,13 +769,14 @@ export const Profile = ({ user, onUpdateUser, onNavigate, onChat, readOnly = fal
                         )}
                       </div>
                     </div>
+
+                    {/* Experience / Background for Student */}
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Experience / Background</label>
+                      <textarea value={editBio} onChange={e => setEditBio(e.target.value)} rows={4} className="w-full border rounded-lg p-2.5 focus:ring-2 focus:ring-indigo-500 bg-white" placeholder="Tell us about your background..."></textarea>
+                    </div>
                   </div>
                 )}
-
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">{isStudent ? 'Experience / Background' : 'Professional Summary / Job Description'}</label>
-                  <textarea value={editBio} onChange={e => setEditBio(e.target.value)} rows={4} className="w-full border rounded-lg p-2.5 focus:ring-2 focus:ring-indigo-500"></textarea>
-                </div>
 
                 {/* Project Management */}
                 <div className="border-t border-slate-100 pt-4">

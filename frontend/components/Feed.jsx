@@ -217,8 +217,8 @@ export const Feed = ({ posts, setPosts, currentUser, hashtagFilter, setHashtagFi
         </div>
       </div>
 
-      {/* Create Post Section - Alumni and Students */}
-      {(currentUser.role === UserRole.GRADUATE || currentUser.role === 'alumni' || currentUser.role === UserRole.UNDERGRADUATE || currentUser.role === 'student') && (
+      {/* Create Post Section - Alumni and Admin only */}
+      {(currentUser.role === UserRole.GRADUATE || currentUser.role === 'alumni' || currentUser.role === UserRole.ADMIN || currentUser.role === 'admin') && (
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 mb-6">
           <div className="flex gap-3">
             <img src={currentUser.avatar} alt="User" className="w-10 h-10 rounded-full" />
@@ -359,7 +359,16 @@ export const Feed = ({ posts, setPosts, currentUser, hashtagFilter, setHashtagFi
                   <img src={post.author.avatar} alt={post.author.name} className="w-12 h-12 rounded-full object-cover border-2 border-slate-100" />
                   <div>
                     <h3 className="font-semibold text-slate-900">{post.author.name}</h3>
-                    <p className="text-xs text-slate-500">{post.author.title}</p>
+                    {(post.author.role === 'GRADUATE' || post.author.role === 'alumni') && (post.author.currentCompany || post.author.company || post.author.jobTitle || post.author.title) && (
+                      <p className="text-xs text-slate-500">
+                        {(() => {
+                          const jt = post.author.jobTitle || post.author.title;
+                          const co = post.author.currentCompany || post.author.company;
+                          if (jt && co) return `${jt} at ${co}`;
+                          return jt || co;
+                        })()}
+                      </p>
+                    )}
                     <p className="text-xs text-slate-400">{post.timestamp}</p>
                   </div>
                 </div>
