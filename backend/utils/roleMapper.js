@@ -49,6 +49,32 @@ export const serializeUser = (user) => {
         serialized.profilePicture = serialized.avatar;
     }
 
+    // Standardize user profile properties for frontend and backend compatibility
+    if (serialized.currentCompany !== undefined) {
+        serialized.company = serialized.currentCompany;
+    }
+    if (serialized.company !== undefined && serialized.currentCompany === undefined) {
+        serialized.currentCompany = serialized.company;
+    }
+    if (serialized.jobTitle !== undefined) {
+        serialized.title = serialized.jobTitle;
+    }
+    if (serialized.title !== undefined && serialized.jobTitle === undefined) {
+        serialized.jobTitle = serialized.title;
+    }
+    if (serialized.projectShowcase !== undefined) {
+        serialized.projects = serialized.projectShowcase;
+    }
+    if (serialized.projects !== undefined && serialized.projectShowcase === undefined) {
+        serialized.projectShowcase = serialized.projects;
+    }
+    if (serialized.professionalBio !== undefined) {
+        serialized.bio = serialized.professionalBio;
+    }
+    if (serialized.bio !== undefined && serialized.professionalBio === undefined) {
+        serialized.professionalBio = serialized.bio;
+    }
+
     return serialized;
 };
 

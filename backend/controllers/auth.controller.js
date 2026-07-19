@@ -3,6 +3,7 @@ import jwt from 'jsonwebtoken';
 import { z } from 'zod';
 import { dataStore } from '../services/dataStore.js';
 import { serializePayload } from '../utils/roleMapper.js';
+import { sendVerificationEmail } from '../services/emailService.js';
 
 // Schemas for input validation
 const passwordSchema = z.string().superRefine((val, ctx) => {
@@ -24,7 +25,7 @@ const studentSignupSchema = z.object({
     ),
     password: passwordSchema,
     department: z.string().optional(),
-    yearOfStudy: z.number().min(1).max(4).optional(),
+    yearOfStudy: z.number().min(1).max(4).nullable().optional(),
     interests: z.array(z.string()).optional(),
     resumeLink: z.string().url('Invalid resume link URL').optional()
 });
@@ -71,16 +72,12 @@ export const signupStudent = async (req, res, next) => {
         // Hash password
         const passwordHash = await bcrypt.hash(password, 10);
 
-        // Verification token for simulated email flow
-        const verificationToken = Math.random().toString(36).substr(2, 8).toUpperCase();
-
         const studentData = {
             name,
             email: email.toLowerCase(),
             passwordHash,
             role: 'student',
-            isVerified: false,
-            verificationToken,
+            isVerified: true,
             department: department || '',
             yearOfStudy: yearOfStudy || null,
             interests: interests || [],
@@ -132,10 +129,9 @@ export const signupStudent = async (req, res, next) => {
 
         res.status(201).json({
             success: true,
-            message: 'Student account created. Please verify your email.',
+            message: 'Student account created successfully. You can now log in.',
             data: {
-                user: cleanUserMapped,
-                verificationToken // Returned for simulated frontend verification screen
+                user: cleanUserMapped
             }
         });
     } catch (err) {
@@ -187,7 +183,7 @@ export const signupAlumni = async (req, res, next) => {
             yearsOfExperience: yearsOfExperience || '1 Year',
             professionalBio: professionalBio || '',
             skills: skills || [],
-            approvalStatus: 'approved',
+            approvalStatus: 'pending',
             referenceToken
         };
 
@@ -198,7 +194,7 @@ export const signupAlumni = async (req, res, next) => {
 
         res.status(201).json({
             success: true,
-            message: 'Registration successful — you can log in now.',
+            message: 'Registration successful. Your account is pending admin approval.',
             data: {
                 user: cleanUserMapped,
                 referenceToken
@@ -327,6 +323,49 @@ export const verifyEmail = async (req, res, next) => {
         res.status(200).json({
             success: true,
             message: 'Email verified successfully! You can now log in.'
+        });
+    } catch (err) {
+        next(err);
+    }
+};
+
+export const resendVerification = async (req, res, next) => {
+    try {
+        const { email } = req.body;
+        if (!email) {
+            return res.status(400).json({
+                success: false,
+                message: 'Email is required'
+            });
+        }
+
+        const user = await dataStore.findOne('User', { email: email.toLowerCase() });
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: 'No student account found with this email address.'
+            });
+        }
+
+        if (user.isVerified) {
+            return res.status(400).json({
+                success: false,
+                message: 'This email is already verified. You can log in.'
+            });
+        }
+
+        const verificationToken = user.verificationToken || Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+        if (!user.verificationToken) {
+            await dataStore.update('User', { _id: user._id }, {
+                $set: { verificationToken }
+            });
+        }
+
+        await sendVerificationEmail(email.toLowerCase(), verificationToken);
+
+        res.status(200).json({
+            success: true,
+            message: 'Verification email resent successfully.'
         });
     } catch (err) {
         next(err);

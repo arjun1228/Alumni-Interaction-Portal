@@ -15,6 +15,7 @@ export const AICoach = () => {
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef(null);
   const fileInputRef = useRef(null);
+  const inputRef = useRef(null);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -46,6 +47,10 @@ export const AICoach = () => {
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
+
+  useEffect(() => {
+    inputRef.current?.focus();
+  }, []);
 
   const handleSend = async (textOverride) => {
     const textToSend = textOverride || input;
@@ -124,7 +129,7 @@ export const AICoach = () => {
   };
 
   return (
-    <div className="flex flex-col h-[calc(100vh-6rem)] bg-white rounded-2xl shadow-lg border border-slate-200 overflow-hidden">
+    <div className="flex flex-col flex-1 min-h-0 bg-white dark:bg-slate-900 rounded-2xl shadow-lg border border-slate-200 dark:border-slate-800 overflow-hidden theme-transition">
       {/* Header */}
       <div className="bg-linear-to-r from-indigo-600 to-purple-600 p-4 flex items-center gap-3">
         <div className="bg-white/20 p-2 rounded-full backdrop-blur-sm">
@@ -132,14 +137,14 @@ export const AICoach = () => {
         </div>
         <div>
           <h2 className="text-white font-bold text-lg flex items-center gap-2">
-            AI Career Mentor <Sparkles className="w-4 h-4 text-yellow-300" />
+            AI Career Mentor <Sparkles className="w-4 h-4 text-yellow-300 animate-pulse" />
           </h2>
           <p className="text-indigo-100 text-xs">Powered by Llama 3.3 (Groq)</p>
         </div>
       </div>
 
       {/* Chat Area */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-slate-50">
+      <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-slate-50 dark:bg-slate-950/20">
         {messages.map((msg) => (
           <div
             key={msg.id}
@@ -149,15 +154,15 @@ export const AICoach = () => {
               className={`max-w-[80%] rounded-2xl p-4 shadow-sm ${
                 msg.role === 'user'
                   ? 'bg-indigo-600 text-white rounded-tr-none'
-                  : 'bg-white text-slate-800 border border-slate-200 rounded-tl-none'
+                  : 'bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 border border-slate-200 dark:border-slate-800 rounded-tl-none'
               }`}
             >
               <div className="flex items-start gap-3">
-                {msg.role === 'model' && <Bot className="w-5 h-5 mt-1 text-indigo-600 shrink-0" />}
+                {msg.role === 'model' && <Bot className="w-5 h-5 mt-1 text-indigo-600 dark:text-indigo-400 shrink-0" />}
                 <div className="whitespace-pre-wrap text-sm leading-relaxed">{msg.text}</div>
                 {msg.role === 'user' && <UserIcon className="w-5 h-5 mt-1 text-indigo-200 shrink-0" />}
               </div>
-              <div className={`text-[10px] mt-2 ${msg.role === 'user' ? 'text-indigo-200' : 'text-slate-400'}`}>
+              <div className={`text-[10px] mt-2 ${msg.role === 'user' ? 'text-indigo-200' : 'text-slate-400 dark:text-slate-500'}`}>
                 {msg.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
               </div>
             </div>
@@ -165,9 +170,9 @@ export const AICoach = () => {
         ))}
         {isLoading && (
           <div className="flex justify-start">
-            <div className="bg-white border border-slate-200 rounded-2xl rounded-tl-none p-4 shadow-sm flex items-center gap-2">
-              <Loader2 className="w-4 h-4 text-indigo-600 animate-spin" />
-              <span className="text-slate-500 text-sm">Thinking...</span>
+            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-850 rounded-2xl rounded-tl-none p-4 shadow-sm flex items-center gap-2">
+              <Loader2 className="w-4 h-4 text-indigo-600 dark:text-indigo-400 animate-spin" />
+              <span className="text-slate-500 dark:text-slate-400 text-sm">Thinking...</span>
             </div>
           </div>
         )}
@@ -175,16 +180,16 @@ export const AICoach = () => {
       </div>
 
       {/* Input Area & Quick Actions */}
-      <div className="p-4 bg-white border-t border-slate-100">
+      <div className="p-4 bg-white dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800 theme-transition">
         {messages.length < 3 && (
            <div className="flex gap-2 mb-3 overflow-x-auto pb-1 scrollbar-hide">
-              <button onClick={() => handleQuickAction('RESUME')} className="flex items-center gap-2 px-3 py-2 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-lg text-xs font-medium text-slate-700 transition-colors whitespace-nowrap">
+              <button onClick={() => handleQuickAction('RESUME')} className="flex items-center gap-2 px-3 py-2 bg-slate-50 hover:bg-slate-100 dark:bg-slate-950 dark:hover:bg-slate-850 border border-slate-200 dark:border-slate-800 rounded-lg text-xs font-medium text-slate-700 dark:text-slate-300 transition-colors whitespace-nowrap cursor-pointer">
                  <FileText className="w-3 h-3 text-indigo-500" /> Review My Resume
               </button>
-              <button onClick={() => handleQuickAction('INTERVIEW')} className="flex items-center gap-2 px-3 py-2 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-lg text-xs font-medium text-slate-700 transition-colors whitespace-nowrap">
+              <button onClick={() => handleQuickAction('INTERVIEW')} className="flex items-center gap-2 px-3 py-2 bg-slate-50 hover:bg-slate-100 dark:bg-slate-950 dark:hover:bg-slate-850 border border-slate-200 dark:border-slate-800 rounded-lg text-xs font-medium text-slate-700 dark:text-slate-300 transition-colors whitespace-nowrap cursor-pointer">
                  <Briefcase className="w-3 h-3 text-emerald-500" /> Mock Interview
               </button>
-              <button onClick={() => handleQuickAction('SKILLS')} className="flex items-center gap-2 px-3 py-2 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-lg text-xs font-medium text-slate-700 transition-colors whitespace-nowrap">
+              <button onClick={() => handleQuickAction('SKILLS')} className="flex items-center gap-2 px-3 py-2 bg-slate-50 hover:bg-slate-100 dark:bg-slate-950 dark:hover:bg-slate-850 border border-slate-200 dark:border-slate-800 rounded-lg text-xs font-medium text-slate-700 dark:text-slate-300 transition-colors whitespace-nowrap cursor-pointer">
                  <Zap className="w-3 h-3 text-amber-500" /> Trending Skills
               </button>
            </div>
@@ -201,29 +206,30 @@ export const AICoach = () => {
           <button
             type="button"
             onClick={handleAttachmentClick}
-            className="text-slate-500 hover:text-indigo-600 p-2.5 hover:bg-slate-100 rounded-xl transition-colors"
+            className="text-slate-500 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 p-2.5 hover:bg-slate-100 dark:hover:bg-slate-850 rounded-xl transition-colors cursor-pointer"
             title="Attach Resume Text File"
           >
             <Paperclip className="w-5 h-5" />
           </button>
           <input
+            ref={inputRef}
             type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyPress}
             placeholder="Ask about resume tips, interview prep, or career paths..."
-            className="flex-1 bg-slate-100 border-0 rounded-xl px-4 py-3 text-slate-800 placeholder-slate-400 focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all outline-none"
+            className="flex-1 rounded-xl px-4 py-3 text-sm form-input-custom"
           />
           <button
             onClick={() => handleSend()}
             disabled={!input.trim() || isLoading}
-            className="bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl p-3 transition-colors shadow-sm"
+            className="bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl p-3 transition-colors shadow-sm cursor-pointer"
           >
             <Send className="w-5 h-5" />
           </button>
         </div>
         <div className="text-center mt-2">
-            <span className="text-[10px] text-slate-400">AI can make mistakes. Consider checking important info.</span>
+            <span className="text-[10px] text-slate-400 dark:text-slate-500">AI can make mistakes. Consider checking important info.</span>
         </div>
       </div>
     </div>

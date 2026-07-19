@@ -408,7 +408,14 @@ export const registerStudent = async (userData) => {
         });
         if (!res.ok) {
             const errJson = await res.json().catch(() => ({}));
-            throw new Error(errJson.message || 'Failed to register student');
+            let errMsg = errJson.message || 'Failed to register student';
+            if (errJson.errors) {
+                const details = Object.entries(errJson.errors)
+                    .map(([field, msgs]) => `${field}: ${msgs.join(', ')}`)
+                    .join('; ');
+                if (details) errMsg = `${errMsg} (${details})`;
+            }
+            throw new Error(errMsg);
         }
         const json = await res.json();
         return json.data || json;
@@ -427,7 +434,14 @@ export const registerAlumni = async (userData) => {
         });
         if (!res.ok) {
             const errJson = await res.json().catch(() => ({}));
-            throw new Error(errJson.message || 'Failed to register alumni');
+            let errMsg = errJson.message || 'Failed to register alumni';
+            if (errJson.errors) {
+                const details = Object.entries(errJson.errors)
+                    .map(([field, msgs]) => `${field}: ${msgs.join(', ')}`)
+                    .join('; ');
+                if (details) errMsg = `${errMsg} (${details})`;
+            }
+            throw new Error(errMsg);
         }
         const json = await res.json();
         return json.data || json;
@@ -607,6 +621,104 @@ export const fetchAdminAlumni = async () => {
         console.warn('Network error: Falling back to empty list', error);
         return [];
     }
+};
+
+export const approveAlumni = async (id) => {
+    const res = await fetch(`${API_URL}/admin/alumni/${id}/approve`, {
+        method: 'PATCH',
+        headers: { ...getAuthHeaders() }
+    });
+    if (!res.ok) {
+        const json = await res.json().catch(() => ({}));
+        throw new Error(json.message || 'Failed to approve alumni');
+    }
+    return await res.json();
+};
+
+export const rejectAlumni = async (id) => {
+    const res = await fetch(`${API_URL}/admin/alumni/${id}/reject`, {
+        method: 'PATCH',
+        headers: { ...getAuthHeaders() }
+    });
+    if (!res.ok) {
+        const json = await res.json().catch(() => ({}));
+        throw new Error(json.message || 'Failed to reject alumni');
+    }
+    return await res.json();
+};
+
+export const deleteAdminUser = async (id) => {
+    const res = await fetch(`${API_URL}/admin/users/${id}`, {
+        method: 'DELETE',
+        headers: { ...getAuthHeaders() }
+    });
+    if (!res.ok) {
+        const json = await res.json().catch(() => ({}));
+        throw new Error(json.message || 'Failed to delete user');
+    }
+    return await res.json();
+};
+
+export const resendVerificationEmail = async (email) => {
+    const res = await fetch(`${API_URL}/auth/resend-verification`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email })
+    });
+    if (!res.ok) {
+        const json = await res.json().catch(() => ({}));
+        throw new Error(json.message || 'Failed to resend verification email');
+    }
+    return await res.json();
+};
+
+export const verifyEmail = async (token) => {
+    const res = await fetch(`${API_URL}/auth/verify-email`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token })
+    });
+    if (!res.ok) {
+        const json = await res.json().catch(() => ({}));
+        throw new Error(json.message || 'Verification failed. The link might be invalid or expired.');
+    }
+    return await res.json();
+};
+
+export const selectGoogleRole = async (userId, selectionData) => {
+    const res = await fetch(`${API_URL}/users/${userId}/select-role`, {
+        method: 'PATCH',
+        headers: {
+            'Content-Type': 'application/json',
+            ...getAuthHeaders()
+        },
+        body: JSON.stringify(selectionData)
+    });
+    if (!res.ok) {
+        const json = await res.json().catch(() => ({}));
+        throw new Error(json.message || 'Failed to select role.');
+    }
+    const data = await res.json();
+    return data.data || data;
+};
+
+export const loginGoogleOneTap = async (credential) => {
+    const res = await fetch(`${API_URL}/auth/google/one-tap`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ credential })
+    });
+    if (!res.ok) {
+        const json = await res.json().catch(() => ({}));
+        throw new Error(json.message || 'Google One Tap login failed.');
+    }
+    const data = await res.json();
+    if (data.token) {
+        localStorage.setItem('token', data.token);
+    }
+    return data.user;
 };
 
 export const applyToJob = async (jobId) => {
@@ -849,4 +961,34 @@ export const enhanceEventDescription = async (description) => {
         throw new Error(json.message || 'Failed to enhance event description');
     }
     return json.data?.enhanced || '';
+};
+
+export const semanticSearchJobs = async (query) => {
+    const res = await fetch(`${API_URL}/jobs/semantic-search`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            ...getAuthHeaders()
+        },
+        body: JSON.stringify({ query })
+    });
+    const json = await res.json();
+    if (!res.ok) {
+        throw new Error(json.message || 'Semantic search failed.');
+    }
+    return json.data || [];
+};
+
+export const fetchAnalyticsData = async (range) => {
+    const res = await fetch(`${API_URL}/analytics?range=${range}`, {
+        method: 'GET',
+        headers: {
+            ...getAuthHeaders()
+        }
+    });
+    const json = await res.json();
+    if (!res.ok) {
+        throw new Error(json.message || 'Failed to fetch analytics data');
+    }
+    return json.data;
 };

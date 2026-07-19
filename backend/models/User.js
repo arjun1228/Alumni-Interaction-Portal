@@ -3,7 +3,8 @@ import mongoose from 'mongoose';
 const projectSchema = new mongoose.Schema({
     title: { type: String, required: true },
     description: { type: String, required: true },
-    link: String
+    link: String,
+    technologies: [String]
 });
 
 const userSchema = new mongoose.Schema({
@@ -17,6 +18,7 @@ const userSchema = new mongoose.Schema({
     lastLoginAt: Date,
     resumeLink: String,
     resumeName: String,
+    location: String,
     
     // Student-specific fields
     department: String,

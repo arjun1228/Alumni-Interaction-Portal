@@ -1,10 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { School, Briefcase, GraduationCap, ArrowRight, Loader2, CheckCircle, AlertCircle, Mail, ShieldCheck, RefreshCw, Info, Eye, EyeOff, Check, X as XIcon } from 'lucide-react';
 import { UserRole } from '../types';
-import { loginUser, registerStudent, registerAlumni } from '../services/api';
+import { loginUser, registerStudent, registerAlumni, resendVerificationEmail, loginGoogleOneTap } from '../services/api';
 import { useToast } from './Toast';
 
-export const AuthScreen = ({ onLogin }) => {
+export const AuthScreen = ({ onLogin, onBack }) => {
   const toast = useToast();
   const [view, setView] = useState('LOGIN');
   const [activeTab, setActiveTab] = useState(UserRole.UNDERGRADUATE);
@@ -22,6 +22,111 @@ export const AuthScreen = ({ onLogin }) => {
   const [pendingUser, setPendingUser] = useState(null);
   const [verificationToken, setVerificationToken] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const googleButtonRef = useRef(null);
+
+  // Clear credentials on mount
+  React.useEffect(() => {
+    setEmail('');
+    setPassword('');
+    setName('');
+    setTitle('');
+    setOrgName('');
+  }, []);
+
+  // Initialize Google One Tap Sign-In automatically
+  React.useEffect(() => {
+    const initializeOneTap = () => {
+      if (window.google?.accounts?.id) {
+        if (window.googleOneTapInitialized) {
+          // Re-render the button on re-mount
+          if (googleButtonRef.current) {
+            window.google.accounts.id.renderButton(googleButtonRef.current, {
+              type: 'standard',
+              theme: 'outline',
+              size: 'large',
+              text: 'signin_with',
+              shape: 'rectangular',
+              logo_alignment: 'left',
+              width: googleButtonRef.current.offsetWidth || 400
+            });
+          }
+          try {
+            window.google.accounts.id.prompt((notification) => {
+              if (notification.isNotDisplayed()) {
+                console.log('One Tap prompt call reason:', notification.getNotDisplayedReason());
+              }
+            });
+          } catch (e) {
+            console.warn(e);
+          }
+          return;
+        }
+
+        window.googleOneTapInitialized = true;
+        try {
+          window.google.accounts.id.initialize({
+            client_id: "899947425716-cpgp8s0earkghto74iqplda9ntlvueqv.apps.googleusercontent.com",
+            callback: async (response) => {
+              setIsLoading(true);
+              setError('');
+              try {
+                const user = await loginGoogleOneTap(response.credential);
+                toast(`Welcome back, ${user.name || 'User'}! 🎉`, 'success');
+                onLogin(user);
+              } catch (err) {
+                console.error(err);
+                setError(err.message || 'Google One Tap authentication failed.');
+              } finally {
+                setIsLoading(false);
+              }
+            },
+            auto_select: false,
+            cancel_on_tap_outside: false,
+            use_fedcm: true
+          });
+
+          // Render the personalized Google Sign-In button
+          if (googleButtonRef.current) {
+            window.google.accounts.id.renderButton(googleButtonRef.current, {
+              type: 'standard',
+              theme: 'outline',
+              size: 'large',
+              text: 'signin_with',
+              shape: 'rectangular',
+              logo_alignment: 'left',
+              width: googleButtonRef.current.offsetWidth || 400
+            });
+          }
+
+          window.google.accounts.id.prompt((notification) => {
+            if (notification.isNotDisplayed()) {
+              console.log('One Tap not displayed reason:', notification.getNotDisplayedReason());
+            }
+          });
+        } catch (err) {
+          console.error('Error initializing Google One Tap:', err);
+        }
+      }
+    };
+
+    // If script is already loaded
+    if (window.google?.accounts?.id) {
+      initializeOneTap();
+    } else {
+      // Check every 100ms for up to 5 seconds
+      let attempts = 0;
+      const interval = setInterval(() => {
+        attempts++;
+        if (window.google?.accounts?.id) {
+          initializeOneTap();
+          clearInterval(interval);
+        } else if (attempts >= 50) {
+          clearInterval(interval);
+        }
+      }, 100);
+      return () => clearInterval(interval);
+    }
+  }, [onLogin, toast]);
 
   // Live password requirements checklist
   const passwordChecks = [
@@ -50,12 +155,12 @@ export const AuthScreen = ({ onLogin }) => {
 
   const getStrengthConfig = (score) => {
     switch (score) {
-      case 0: return { label: '', color: 'bg-slate-200', text: 'text-slate-400' };
-      case 1: return { label: 'Weak', color: 'bg-red-500', text: 'text-red-600' };
-      case 2: return { label: 'Fair', color: 'bg-amber-400', text: 'text-amber-600' };
-      case 3: return { label: 'Good', color: 'bg-blue-500', text: 'text-blue-600' };
-      case 4: return { label: 'Strong', color: 'bg-emerald-500', text: 'text-emerald-600' };
-      default: return { label: '', color: 'bg-slate-200', text: 'text-slate-400' };
+      case 0: return { label: '', color: 'bg-slate-200 dark:bg-slate-800', text: 'text-slate-400 dark:text-slate-500' };
+      case 1: return { label: 'Weak', color: 'bg-red-500', text: 'text-red-650 dark:text-red-400' };
+      case 2: return { label: 'Fair', color: 'bg-amber-400', text: 'text-amber-650 dark:text-amber-405' };
+      case 3: return { label: 'Good', color: 'bg-blue-500', text: 'text-blue-650 dark:text-blue-400' };
+      case 4: return { label: 'Strong', color: 'bg-emerald-500', text: 'text-emerald-655 dark:text-emerald-400' };
+      default: return { label: '', color: 'bg-slate-200 dark:bg-slate-800', text: 'text-slate-400 dark:text-slate-500' };
     }
   };
 
@@ -72,19 +177,19 @@ export const AuthScreen = ({ onLogin }) => {
 
     try {
       const defaultData = activeTab === UserRole.UNDERGRADUATE ? {
-        department: 'Computer Science',
-        yearOfStudy: 3,
-        course: 'B.Tech CS',
-        skills: ['Java', 'Python', 'React'],
-        interests: ['AI/ML', 'Web Development'],
-        experience: 'Aspiring software engineer with a passion for building scalable web applications.'
+        department: '',
+        yearOfStudy: null,
+        course: '',
+        skills: [],
+        interests: [],
+        experience: ''
       } : {
-        department: 'Engineering',
-        company: 'Tech Corp',
-        title: 'Software Engineer',
-        yearsOfExperience: '3+ Years',
-        skills: ['System Design', 'Cloud Architecture'],
-        bio: 'Experienced backend engineer passionate about distributed systems.'
+        department: '',
+        company: '',
+        title: '',
+        yearsOfExperience: '',
+        skills: [],
+        bio: ''
       };
 
       const user = await loginUser({
@@ -95,7 +200,8 @@ export const AuthScreen = ({ onLogin }) => {
         ...defaultData
       });
 
-      if (user.role !== UserRole.ADMIN && user.role !== activeTab) {
+      const isUserAdmin = user.role?.toUpperCase() === 'ADMIN' || user.role === 'admin';
+      if (!isUserAdmin && user.role !== activeTab) {
         setError(`Please switch to the ${user.role === UserRole.UNDERGRADUATE ? 'Student' : 'Alumni'} login tab.`);
         setIsLoading(false);
         return;
@@ -114,7 +220,7 @@ export const AuthScreen = ({ onLogin }) => {
     }
   };
 
-  const handleRegister = (e) => {
+  const handleRegister = async (e) => {
     e.preventDefault();
     setIsLoading(true);
     setError('');
@@ -125,7 +231,7 @@ export const AuthScreen = ({ onLogin }) => {
       return;
     }
 
-    setTimeout(() => {
+    try {
       const isStudent = activeTab === UserRole.UNDERGRADUATE;
 
       const newUser = {
@@ -147,54 +253,36 @@ export const AuthScreen = ({ onLogin }) => {
         location: ''
       };
 
-      setPendingUser(newUser);
-
-      if (activeTab === UserRole.UNDERGRADUATE) {
-        setView('VERIFY_UG');
-      } else {
-        setVerificationToken(generateToken());
-        setView('VERIFY_GRAD');
-      }
-      setIsLoading(false);
-    }, 1000);
-  };
-
-  const completeRegistration = async () => {
-    if (!pendingUser) return;
-
-    setIsLoading(true);
-    setError('');
-    try {
-      const isStudent = activeTab === UserRole.UNDERGRADUATE;
       if (isStudent) {
         await registerStudent({
-          name: pendingUser.name,
-          email: pendingUser.email.toLowerCase(),
-          password: password,
+          name,
+          email: email.toLowerCase(),
+          password,
           department: '',
           yearOfStudy: null,
           interests: []
         });
+        toast('Account created successfully! Please log in.', 'success');
+        setPassword('');
+        setName('');
+        setOrgName('');
+        setTitle('');
+        setView('LOGIN');
       } else {
-        await registerAlumni({
-          name: pendingUser.name,
-          email: pendingUser.email.toLowerCase(),
-          password: password,
-          currentCompany: pendingUser.company || '',
-          jobTitle: pendingUser.title || '',
-          yearsOfExperience: '',
+        const resData = await registerAlumni({
+          name,
+          email: email.toLowerCase(),
+          password,
+          currentCompany: orgName || 'Independent',
+          jobTitle: title || 'Alumni Member',
+          yearsOfExperience: '1 Year',
           professionalBio: '',
           skills: []
         });
+        setPendingUser({ ...newUser, email: email.toLowerCase() });
+        setVerificationToken(resData.referenceToken || generateToken());
+        setView('VERIFY_GRAD');
       }
-
-      const loggedInUser = await loginUser({
-        email: pendingUser.email,
-        password: password,
-        role: activeTab
-      });
-      toast(`Account created! Welcome to AlumniConnect, ${loggedInUser.name || pendingUser.name}! 🎓`, 'success', 4500);
-      onLogin(loggedInUser);
     } catch (err) {
       console.error(err);
       setError(err.message || 'Registration failed.');
@@ -203,39 +291,65 @@ export const AuthScreen = ({ onLogin }) => {
     }
   };
 
+  const handleResendEmail = async () => {
+    if (!pendingUser?.email) return;
+    setIsLoading(true);
+    setError('');
+    try {
+      await resendVerificationEmail(pendingUser.email);
+      toast('Verification link resent successfully! Please check your inbox.', 'success');
+    } catch (err) {
+      console.error(err);
+      setError(err.message || 'Failed to resend verification email.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   if (view === 'VERIFY_UG') {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
-        <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8 text-center animate-in fade-in zoom-in duration-300">
-          <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-6 text-blue-600">
+      <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex items-center justify-center p-4 theme-transition">
+        <div className="max-w-md w-full bg-white dark:bg-slate-900 border border-transparent dark:border-slate-850 rounded-2xl shadow-xl p-8 text-center animate-in fade-in zoom-in duration-300 theme-transition">
+          <div className="w-16 h-16 bg-blue-100 dark:bg-blue-955/30 rounded-full flex items-center justify-center mx-auto mb-6 text-indigo-650 dark:text-indigo-400">
             <Mail className="w-8 h-8" />
           </div>
-          <h2 className="text-2xl font-bold text-slate-800 mb-2">Simulate Email Verification</h2>
-          <p className="text-slate-600 mb-6">
-            In a real app, we would send a link to <span className="font-semibold text-slate-800">{email}</span>.
-            <br />For this demo, simply click the button below to verify.
+          <h2 className="text-2xl font-bold text-slate-805 dark:text-white mb-2">Check Your Email</h2>
+          <p className="text-slate-655 dark:text-slate-350 mb-6">
+            We have sent a verification link to <span className="font-semibold text-slate-805 dark:text-white">{pendingUser?.email}</span>.
+            <br />Please click the link in that email to activate your account.
           </p>
 
-          <div className="bg-blue-50 border border-blue-100 rounded-lg p-4 mb-8 text-sm text-blue-800 flex items-start gap-3 text-left">
-            <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
-            <p><strong>Demo Mode:</strong> No actual email is sent. This screen simulates the user clicking a link from their inbox.</p>
+          <div className="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg p-4 mb-6 text-left relative overflow-hidden">
+            <h4 className="font-semibold text-slate-700 dark:text-slate-300 text-sm mb-1">Local Testing Notice</h4>
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              Because we are in development mode, a clickable email preview link has been printed directly to your server console. You can click that link to complete verification.
+            </p>
           </div>
+
+          {error && <p className="text-red-500 text-sm mb-4 font-semibold">{error}</p>}
 
           <div className="space-y-3">
             <button
-              onClick={completeRegistration}
+              onClick={handleResendEmail}
               disabled={isLoading}
-              className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-xl transition-all flex items-center justify-center gap-2"
+              className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-xl transition-all cursor-pointer flex items-center justify-center gap-2"
             >
-              {isLoading ? <Loader2 className="animate-spin w-5 h-5" /> : <CheckCircle className="w-5 h-5" />}
-              Verify & Continue
-              <span className="text-indigo-200 text-xs font-normal">(Simulation)</span>
+              {isLoading ? <Loader2 className="animate-spin w-5 h-5" /> : <RefreshCw className="w-5 h-5" />}
+              Resend Email
             </button>
             <button
-              onClick={() => { setView('REGISTER'); setPendingUser(null); }}
-              className="text-slate-500 hover:text-slate-700 text-sm font-medium flex items-center justify-center gap-1"
+              onClick={() => {
+                setEmail('');
+                setPassword('');
+                setName('');
+                setOrgName('');
+                setTitle('');
+                setPendingUser(null);
+                setView('LOGIN');
+              }}
+              className="w-full bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-bold py-3 px-4 rounded-xl transition-all cursor-pointer"
             >
-              <RefreshCw className="w-3 h-3" /> Resend Link
+              Back to Login
             </button>
           </div>
         </div>
@@ -245,46 +359,45 @@ export const AuthScreen = ({ onLogin }) => {
 
   if (view === 'VERIFY_GRAD') {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
-        <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8 text-center animate-in fade-in zoom-in duration-300">
-          <div className="w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-6 text-amber-600">
+      <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex items-center justify-center p-4 theme-transition">
+        <div className="max-w-md w-full bg-white dark:bg-slate-900 border border-transparent dark:border-slate-850 rounded-2xl shadow-xl p-8 text-center animate-in fade-in zoom-in duration-300 theme-transition">
+          <div className="w-16 h-16 bg-amber-100 dark:bg-amber-955/30 rounded-full flex items-center justify-center mx-auto mb-6 text-amber-650 dark:text-amber-400">
             <ShieldCheck className="w-8 h-8" />
           </div>
-          <h2 className="text-2xl font-bold text-slate-800 mb-2">Admin Approval Required</h2>
-          <p className="text-slate-600 mb-6">
-            Alumni accounts require manual verification to maintain network integrity.
+          <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">Application Under Review</h2>
+          <p className="text-slate-600 dark:text-slate-300 mb-6">
+            Your application is under review. You'll be notified once an administrator approves your account.
           </p>
 
-          <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 mb-6 text-left relative overflow-hidden">
+          <div className="bg-slate-55 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg p-4 mb-6 text-left relative overflow-hidden">
             <div className="absolute top-0 right-0 p-2 opacity-10">
-              <Briefcase className="w-24 h-24" />
+              <Briefcase className="w-24 h-24 dark:text-white" />
             </div>
-            <h4 className="font-semibold text-slate-700 text-sm mb-1">Verification Details</h4>
-            <div className="text-sm text-slate-600 space-y-1 mb-3">
-              <p><span className="font-medium">Email:</span> {pendingUser?.email}</p>
-              <p><span className="font-medium">Reference Token:</span></p>
+            <h4 className="font-bold text-slate-800 dark:text-slate-200 text-sm mb-1.5">Verification Details</h4>
+            <div className="text-sm text-slate-700 dark:text-slate-300 space-y-1">
+              <p><span className="font-semibold">Email:</span> {pendingUser?.email}</p>
+              <p><span className="font-semibold">Reference Code:</span> <span className="font-mono bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-850 px-1 py-0.5 rounded font-bold text-slate-900 dark:text-white">{verificationToken}</span></p>
             </div>
-            <div className="bg-white border border-slate-300 rounded p-2 font-mono text-center text-lg tracking-widest font-bold text-slate-800 select-all">
-              {verificationToken}
-            </div>
-            <p className="text-xs text-slate-400 mt-2">
-              This token has been sent to your email. An administrator will review your application shortly.
-            </p>
           </div>
 
           <div className="space-y-3">
             <button
-              onClick={completeRegistration}
-              disabled={isLoading}
-              className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 px-4 rounded-xl transition-all flex items-center justify-center gap-2"
+              onClick={() => {
+                setEmail('');
+                setPassword('');
+                setName('');
+                setOrgName('');
+                setTitle('');
+                setPendingUser(null);
+                setView('LOGIN');
+              }}
+              className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-xl transition-all cursor-pointer"
             >
-              {isLoading ? <Loader2 className="animate-spin w-5 h-5" /> : <CheckCircle className="w-5 h-5" />}
-              Simulate Admin Approval
-              <span className="text-emerald-200 text-xs font-normal">(Hackathon Mode)</span>
+              Back to Login
             </button>
             <button
               onClick={() => { setView('REGISTER'); setPendingUser(null); }}
-              className="text-slate-500 hover:text-slate-700 text-sm font-medium"
+              className="text-slate-550 dark:text-slate-400 hover:text-slate-750 dark:hover:text-slate-205 text-sm font-medium cursor-pointer"
             >
               Cancel Application
             </button>
@@ -295,26 +408,41 @@ export const AuthScreen = ({ onLogin }) => {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
-      <div className="max-w-5xl w-full grid md:grid-cols-2 bg-white rounded-3xl shadow-2xl overflow-hidden min-h-[600px]">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex items-center justify-center p-4 theme-transition">
+      <div className="max-w-5xl w-full grid md:grid-cols-2 bg-white dark:bg-slate-900 rounded-3xl shadow-2xl overflow-hidden min-h-[600px] border border-transparent dark:border-slate-850 theme-transition">
 
         {/* Left Side - Form */}
         <div className="p-8 md:p-12 flex flex-col justify-center order-2 md:order-1">
           <div className="mb-8">
-            <div className="flex items-center gap-2 mb-2">
-              <div className={`p-1.5 rounded-lg text-white transition-colors duration-300 ${activeTab === UserRole.UNDERGRADUATE ? 'bg-indigo-600' : activeTab === UserRole.GRADUATE ? 'bg-emerald-600' : 'bg-slate-800'}`}>
-                <School className="w-6 h-6" />
+            <div className="flex items-center justify-between mb-2">
+              <div
+                onClick={onBack}
+                className="flex items-center gap-2 cursor-pointer group hover:opacity-80 transition-opacity"
+                title="Go back to Landing Page"
+              >
+                <div className={`p-1.5 rounded-lg text-white transition-colors duration-300 ${activeTab === UserRole.UNDERGRADUATE ? 'bg-indigo-600' : activeTab === UserRole.GRADUATE ? 'bg-emerald-600' : 'bg-slate-800'}`}>
+                  <School className="w-6 h-6" />
+                </div>
+                <span className="text-xl font-bold text-slate-850 dark:text-white">AlumniConnect</span>
               </div>
-              <span className="text-xl font-bold text-slate-800">AlumniConnect</span>
+              {onBack && (
+                <button
+                  type="button"
+                  onClick={onBack}
+                  className="text-xs font-semibold text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 cursor-pointer flex items-center gap-1"
+                >
+                  ← Back
+                </button>
+              )}
             </div>
             <div className="flex items-center gap-3 mb-2">
-              <h1 className="text-3xl font-bold text-slate-900">
+              <h1 className="text-3xl font-bold text-slate-900 dark:text-white">
                 {view === 'LOGIN'
                   ? (activeTab === UserRole.UNDERGRADUATE ? 'Student Login' : activeTab === UserRole.GRADUATE ? 'Alumni Login' : 'Admin Portal')
                   : (activeTab === UserRole.UNDERGRADUATE ? 'Student Sign Up' : 'Alumni Sign Up')}
               </h1>
             </div>
-            <p className="text-slate-600">
+            <p className="text-slate-600 dark:text-slate-400">
               {view === 'LOGIN'
                 ? `Welcome back! Please enter your ${activeTab === UserRole.UNDERGRADUATE ? 'student' : activeTab === UserRole.GRADUATE ? 'alumni' : 'admin'} credentials.`
                 : `Join as a ${activeTab === UserRole.UNDERGRADUATE ? 'Student' : 'Alumni'} to connect.`}
@@ -322,7 +450,7 @@ export const AuthScreen = ({ onLogin }) => {
           </div>
 
           {error && (
-            <div className="mb-6 bg-red-50 text-red-600 px-4 py-3 rounded-xl text-sm flex items-center gap-2 animate-in fade-in slide-in-from-top-2">
+            <div className="mb-6 bg-red-50 dark:bg-red-950/20 text-red-600 dark:text-red-400 border border-transparent dark:border-red-900/35 px-4 py-3 rounded-xl text-sm flex items-center gap-2 animate-in fade-in slide-in-from-top-2">
               <AlertCircle className="w-4 h-4 shrink-0" />
               {error}
             </div>
@@ -332,13 +460,13 @@ export const AuthScreen = ({ onLogin }) => {
             {view === 'REGISTER' && (
               <div className="animate-in fade-in slide-in-from-left-2 duration-300">
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Full Name</label>
+                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Full Name</label>
                   <input
                     required
                     type="text"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all"
+                    className="w-full px-4 py-3 rounded-xl form-input-custom"
                     placeholder="e.g. Alex Johnson"
                   />
                 </div>
@@ -346,13 +474,13 @@ export const AuthScreen = ({ onLogin }) => {
             )}
 
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Email Address</label>
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Email Address</label>
               <input
                 required
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all"
+                className="w-full px-4 py-3 rounded-xl form-input-custom"
                 placeholder={activeTab === UserRole.UNDERGRADUATE ? "yourname@university.edu" : "name@company.com"}
               />
             </div>
@@ -360,7 +488,7 @@ export const AuthScreen = ({ onLogin }) => {
             {view === 'REGISTER' && (
               <div className="grid grid-cols-2 gap-4 animate-in fade-in slide-in-from-left-2 duration-300">
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">
+                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
                     {activeTab === UserRole.UNDERGRADUATE ? 'University' : 'Company'}
                   </label>
                   <input
@@ -368,12 +496,12 @@ export const AuthScreen = ({ onLogin }) => {
                     type="text"
                     value={orgName}
                     onChange={(e) => setOrgName(e.target.value)}
-                    className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all"
+                    className="w-full px-4 py-3 rounded-xl form-input-custom"
                     placeholder={activeTab === UserRole.UNDERGRADUATE ? "State Univ" : "TechCorp Inc."}
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">
+                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
                     {activeTab === UserRole.UNDERGRADUATE ? 'Major' : 'Job Title'}
                   </label>
                   <input
@@ -381,7 +509,7 @@ export const AuthScreen = ({ onLogin }) => {
                     type="text"
                     value={title}
                     onChange={(e) => setTitle(e.target.value)}
-                    className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all"
+                    className="w-full px-4 py-3 rounded-xl form-input-custom"
                     placeholder={activeTab === UserRole.UNDERGRADUATE ? "Computer Science" : "Senior Developer"}
                   />
                 </div>
@@ -389,21 +517,21 @@ export const AuthScreen = ({ onLogin }) => {
             )}
 
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Password</label>
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Password</label>
               <div className="relative">
                 <input
                   required
                   type={showPassword ? 'text' : 'password'}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full px-4 py-3 pr-12 rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all"
+                  className="w-full px-4 py-3 pr-12 rounded-xl form-input-custom"
                   placeholder="••••••••"
                 />
                 {showPassword ? (
                   <button
                     type="button"
                     onClick={() => setShowPassword(false)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors p-1"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-350 transition-colors p-1 cursor-pointer"
                     aria-label="Hide password"
                     tabIndex={-1}
                   >
@@ -413,7 +541,7 @@ export const AuthScreen = ({ onLogin }) => {
                   <button
                     type="button"
                     onClick={() => setShowPassword(true)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors p-1"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-355 transition-colors p-1 cursor-pointer"
                     aria-label="Show password"
                     tabIndex={-1}
                   >
@@ -429,7 +557,7 @@ export const AuthScreen = ({ onLogin }) => {
                     {[1, 2, 3, 4].map((level) => (
                       <div
                         key={level}
-                        className={`h-full flex-1 rounded-full transition-all duration-300 ${strengthScore >= level ? strengthConfig.color : 'bg-slate-100'
+                        className={`h-full flex-1 rounded-full transition-all duration-300 ${strengthScore >= level ? strengthConfig.color : 'bg-slate-100 dark:bg-slate-800'
                           }`}
                       />
                     ))}
@@ -441,7 +569,7 @@ export const AuthScreen = ({ onLogin }) => {
                   {/* Live Requirements Checklist */}
                   <ul className="mt-2.5 space-y-1">
                     {passwordChecks.map((check) => (
-                      <li key={check.label} className={`flex items-center gap-2 text-xs transition-colors duration-200 ${check.met ? 'text-emerald-600' : 'text-slate-400'}`}>
+                      <li key={check.label} className={`flex items-center gap-2 text-xs transition-colors duration-200 ${check.met ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-405 dark:text-slate-500'}`}>
                         {check.met
                           ? <Check className="w-3.5 h-3.5 shrink-0" />
                           : <XIcon className="w-3.5 h-3.5 shrink-0" />
@@ -457,7 +585,7 @@ export const AuthScreen = ({ onLogin }) => {
             <button
               type="submit"
               disabled={isLoading}
-              className={`w-full text-white font-bold py-3 px-4 rounded-xl transition-all flex items-center justify-center gap-2 mt-6 shadow-lg hover:shadow-xl ${activeTab === UserRole.UNDERGRADUATE ? 'bg-indigo-600 hover:bg-indigo-700 shadow-indigo-200' : activeTab === UserRole.GRADUATE ? 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-200' : 'bg-slate-800 hover:bg-slate-900 shadow-slate-200'}`}
+              className={`w-full text-white font-bold py-3 px-4 rounded-xl transition-all cursor-pointer flex items-center justify-center gap-2 mt-6 shadow-lg hover:shadow-xl ${activeTab === UserRole.UNDERGRADUATE ? 'bg-indigo-600 hover:bg-indigo-700 shadow-indigo-200/50 dark:shadow-none' : activeTab === UserRole.GRADUATE ? 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-200/50 dark:shadow-none' : 'bg-slate-800 hover:bg-slate-900 shadow-slate-200/50 dark:shadow-none'}`}
             >
               {isLoading && <Loader2 className="animate-spin w-5 h-5" />}
               {view === 'LOGIN'
@@ -467,12 +595,25 @@ export const AuthScreen = ({ onLogin }) => {
             </button>
           </form>
 
+          {activeTab !== 'admin' && activeTab !== 'ADMIN' && (
+            <>
+              <div className="relative my-6 flex items-center justify-center">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-slate-200 dark:border-slate-800"></div>
+                </div>
+                <span className="relative px-4 text-xs font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500 bg-white dark:bg-slate-900 z-10">Or continue with</span>
+              </div>
+              {/* Google renders a personalized "Sign in as..." button here */}
+              <div ref={googleButtonRef} className="w-full flex items-center justify-center"></div>
+            </>
+          )}
+
           <div className="mt-8 text-center">
-            <p className="text-slate-500 text-sm">
+            <p className="text-slate-500 dark:text-slate-450 text-sm">
               {view === 'LOGIN' ? "Don't have an account?" : "Already have an account?"}
               <button
                 onClick={() => { setView(view === 'LOGIN' ? 'REGISTER' : 'LOGIN'); setError(''); }}
-                className={`ml-2 font-semibold hover:underline ${activeTab === UserRole.UNDERGRADUATE ? 'text-indigo-600 hover:text-indigo-700' : 'text-emerald-600 hover:text-emerald-700'}`}
+                className={`ml-2 font-semibold hover:underline cursor-pointer ${activeTab === UserRole.UNDERGRADUATE ? 'text-indigo-600 hover:text-indigo-700' : 'text-emerald-600 hover:text-emerald-700'}`}
               >
                 {view === 'LOGIN' ? 'Sign up' : 'Log in'}
               </button>
@@ -480,8 +621,8 @@ export const AuthScreen = ({ onLogin }) => {
           </div>
 
           {view === 'LOGIN' && (
-            <div className="mt-8 p-4 bg-slate-50 rounded-xl text-xs text-slate-500 border border-slate-100 flex items-start gap-2.5">
-              <Info className="h-4 w-4 text-slate-400 shrink-0 mt-0.5" />
+            <div className="mt-8 p-4 bg-slate-50 dark:bg-slate-950 rounded-xl text-xs text-slate-500 dark:text-slate-450 border border-slate-100 dark:border-slate-850 flex items-start gap-2.5">
+              <Info className="h-4 w-4 text-slate-400 dark:text-slate-500 shrink-0 mt-0.5" />
               <div className="flex-1 flex justify-between">
                 <span>Use <strong>.edu</strong> for Student tab.</span>
                 <span>Use standard email for Alumni tab.</span>
@@ -522,7 +663,7 @@ export const AuthScreen = ({ onLogin }) => {
                     </div>
                     <div>
                       <h3 className="font-bold text-lg">For Students</h3>
-                      <p className={`text-xs mt-1 ${activeTab === UserRole.UNDERGRADUATE ? 'text-indigo-600' : 'text-indigo-200'}`}>
+                      <p className={`text-xs mt-1 ${activeTab === UserRole.UNDERGRADUATE ? 'text-indigo-650' : 'text-indigo-200'}`}>
                         Mentorship & Internships
                       </p>
                     </div>
@@ -547,7 +688,7 @@ export const AuthScreen = ({ onLogin }) => {
                     </div>
                     <div>
                       <h3 className="font-bold text-lg">For Alumni</h3>
-                      <p className={`text-xs mt-1 ${activeTab === UserRole.GRADUATE ? 'text-emerald-600' : 'text-indigo-200'}`}>
+                      <p className={`text-xs mt-1 ${activeTab === UserRole.GRADUATE ? 'text-emerald-650' : 'text-indigo-200'}`}>
                         Recruit & Give Back
                       </p>
                     </div>

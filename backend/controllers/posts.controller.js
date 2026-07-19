@@ -132,10 +132,9 @@ export const likePost = async (req, res, next) => {
 
         const updatedPost = await dataStore.update('Post', { _id: postId }, updates);
         
-        // Fetch with author populated
-        const resolved = await dataStore.find('Post', { _id: postId }, { populate: 'author' });
+        const resolved = await dataStore.findById('Post', postId, { populate: 'author' });
 
-        const mappedPost = serializePayload(resolved[0] || updatedPost);
+        const mappedPost = serializePayload(resolved || updatedPost);
 
         res.status(200).json({
             success: true,

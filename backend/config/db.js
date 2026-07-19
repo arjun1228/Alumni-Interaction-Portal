@@ -28,6 +28,7 @@ export const connectDB = async (mongoUri) => {
         // Set serverSelectionTimeoutMS to 5000 to timeout fast if Atlas cluster is unreachable
         await mongoose.connect(mongoUri, {
             serverSelectionTimeoutMS: 5000,
+            maxPoolSize: 100,
         });
         isConnected = true;
         console.log('💚 MongoDB connected successfully.');

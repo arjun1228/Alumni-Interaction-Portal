@@ -53,7 +53,6 @@ export const AcademicCalendar = () => {
     setEditingEventId(event.id || event._id);
     setIsAdding(false);
     setTitle(event.title);
-    // Format date string to YYYY-MM-DD for date input
     const formattedDate = new Date(event.date).toISOString().substring(0, 10);
     setDate(formattedDate);
     setCategory(event.category);
@@ -65,21 +64,18 @@ export const AcademicCalendar = () => {
 
     try {
       if (editingEventId) {
-        // Edit existing
         const updated = await updateCalendarEvent(editingEventId, { title, date, category });
         setEvents(prev => prev.map(evt => (evt.id === editingEventId || evt._id === editingEventId) ? updated : evt).sort((a, b) => new Date(a.date) - new Date(b.date)));
         setFullScheduleEvents(prev => prev.map(evt => (evt.id === editingEventId || evt._id === editingEventId) ? updated : evt).sort((a, b) => new Date(a.date) - new Date(b.date)));
         setEditingEventId(null);
         toast('Calendar event updated! 📅', 'success');
       } else {
-        // Create new
         const created = await createCalendarEvent({ title, date, category });
         setEvents(prev => [...prev, created].sort((a, b) => new Date(a.date) - new Date(b.date)));
         setFullScheduleEvents(prev => [...prev, created].sort((a, b) => new Date(a.date) - new Date(b.date)));
         setIsAdding(false);
         toast(`“${title}” added to your calendar! ✅`, 'success');
       }
-      // Reset inputs
       setTitle('');
       setDate('');
       setCategory('Academic');
@@ -115,10 +111,10 @@ export const AcademicCalendar = () => {
 
   const getCategoryColorClass = (cat) => {
     switch (cat) {
-      case 'Academic': return 'bg-red-50 text-red-600 border border-red-100';
-      case 'Deadline': return 'bg-amber-50 text-amber-600 border border-amber-100';
-      case 'Holiday': return 'bg-green-50 text-green-600 border border-green-100';
-      default: return 'bg-indigo-50 text-indigo-600 border border-indigo-100'; // Event
+      case 'Academic': return 'bg-red-50 dark:bg-red-950/40 text-red-655 dark:text-red-400 border border-red-100 dark:border-red-900/50';
+      case 'Deadline': return 'bg-amber-50 dark:bg-amber-955/40 text-amber-655 dark:text-amber-400 border border-amber-100 dark:border-amber-900/50';
+      case 'Holiday': return 'bg-green-50 dark:bg-green-950/40 text-green-655 dark:text-green-400 border border-green-100 dark:border-green-900/50';
+      default: return 'bg-indigo-50 dark:bg-indigo-950/40 text-indigo-655 dark:text-indigo-400 border border-indigo-100 dark:border-indigo-900/50';
     }
   };
 
@@ -128,16 +124,16 @@ export const AcademicCalendar = () => {
   };
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5 relative overflow-hidden transition-all duration-300">
-      <div className="flex items-center justify-between mb-4 border-b border-slate-100 pb-3">
+    <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 p-5 relative overflow-hidden transition-all duration-300 text-slate-800 dark:text-slate-100">
+      <div className="flex items-center justify-between mb-4 border-b border-slate-100 dark:border-slate-800 pb-3">
         <div className="flex items-center gap-2">
-          <CalendarIcon className="w-5 h-5 text-indigo-600" />
-          <h3 className="font-bold text-slate-800">Academic Calendar</h3>
+          <CalendarIcon className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+          <h3 className="font-bold text-slate-800 dark:text-white">Academic Calendar</h3>
         </div>
         {!isAdding && !editingEventId && (
           <button
             onClick={handleAddClick}
-            className="p-1 text-slate-400 hover:text-indigo-600 hover:bg-slate-50 rounded-lg transition-colors"
+            className="p-1 text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
             title="Add Event"
             aria-label="Add Event"
           >
@@ -149,55 +145,55 @@ export const AcademicCalendar = () => {
       {/* Loader */}
       {loading ? (
         <div className="flex justify-center py-6">
-          <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-indigo-600"></div>
+          <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-indigo-600 dark:border-indigo-400"></div>
         </div>
       ) : (
         <div className="space-y-4">
           {/* Add / Edit Form */}
           {(isAdding || editingEventId) && (
-            <form onSubmit={handleSave} className="bg-slate-50 p-4 rounded-xl border border-slate-150 space-y-3 animate-in slide-in-from-top duration-200">
+            <form onSubmit={handleSave} className="bg-slate-50 dark:bg-slate-950 p-4 rounded-xl border border-slate-150 dark:border-slate-800 space-y-3 animate-in slide-in-from-top duration-200 text-slate-800 dark:text-slate-100">
               <div className="flex justify-between items-center">
-                <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider">
+                <h4 className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
                   {editingEventId ? 'Edit Event' : 'New Event'}
                 </h4>
                 <button
                   type="button"
                   onClick={() => { setIsAdding(false); setEditingEventId(null); }}
-                  className="text-slate-400 hover:text-slate-600"
+                  className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer"
                 >
                   <X className="w-4 h-4" />
                 </button>
               </div>
 
               <div>
-                <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Title</label>
+                <label className="block text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase mb-1">Title</label>
                 <input
                   type="text"
                   required
                   placeholder="e.g. Mid-Semester Exams"
                   value={title}
                   onChange={e => setTitle(e.target.value)}
-                  className="w-full bg-white border border-slate-200 rounded-lg p-2 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  className="w-full form-input-custom rounded-lg p-2 text-xs"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Date</label>
+                  <label className="block text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase mb-1">Date</label>
                   <input
                     type="date"
                     required
                     value={date}
                     onChange={e => setDate(e.target.value)}
-                    className="w-full bg-white border border-slate-200 rounded-lg p-2 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    className="w-full form-input-custom rounded-lg p-2 text-xs"
                   />
                 </div>
                 <div>
-                  <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Category</label>
+                  <label className="block text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase mb-1">Category</label>
                   <select
                     value={category}
                     onChange={e => setCategory(e.target.value)}
-                    className="w-full bg-white border border-slate-200 rounded-lg p-2 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    className="w-full form-input-custom rounded-lg p-2 text-xs"
                   >
                     <option value="Academic">Academic</option>
                     <option value="Deadline">Deadline</option>
@@ -209,7 +205,7 @@ export const AcademicCalendar = () => {
 
               <button
                 type="submit"
-                className="w-full bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg py-2 text-xs font-semibold shadow-sm transition-colors flex items-center justify-center gap-1"
+                className="w-full bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg py-2 text-xs font-semibold shadow-sm transition-colors flex items-center justify-center gap-1 cursor-pointer"
               >
                 <Check className="w-3.5 h-3.5" /> Save Event
               </button>
@@ -222,26 +218,26 @@ export const AcademicCalendar = () => {
               const { month, day } = parseDateBadge(event.date);
               const isEditingThis = editingEventId === (event.id || event._id);
 
-              if (isEditingThis) return null; // Form renders instead
+              if (isEditingThis) return null;
 
               return (
-                <div key={event.id || event._id} className="group flex gap-3 items-start relative hover:bg-slate-50/50 p-2 -mx-2 rounded-xl transition-colors">
-                  <div className={`flex flex-col items-center justify-center w-12 h-12 rounded-lg shrink-0 font-sans ${getCategoryColorClass(event.category)}`}>
+                <div key={event.id || event._id} className="group flex gap-3 items-start relative hover:bg-slate-100/70 dark:hover:bg-slate-800/60 p-2 -mx-2 rounded-xl transition-all duration-150 ease-in-out">
+                  <div className={`flex flex-col items-center justify-center w-12 h-12 rounded-lg shrink-0 font-sans transition-transform duration-150 ease-in-out group-hover:scale-105 ${getCategoryColorClass(event.category)}`}>
                     <span className="text-[10px] font-bold uppercase tracking-wider">{month}</span>
                     <span className="text-base font-extrabold leading-none mt-0.5">{day}</span>
                   </div>
                   <div className="flex-1 min-w-0 pr-12">
-                    <h4 className="text-sm font-semibold text-slate-800 line-clamp-1">{event.title}</h4>
-                    <p className="text-xs text-slate-500 flex items-center gap-1 mt-1 font-medium">
+                    <h4 className="text-sm font-semibold text-slate-800 dark:text-slate-200 line-clamp-1 leading-snug">{event.title}</h4>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-1 mt-1 font-medium">
                       {event.category === 'Deadline' && <AlertCircle className="w-3 h-3 text-amber-500" />}
                       {event.category}
                     </p>
                   </div>
                   {/* Action items on hover/right */}
-                  <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1 opacity-0 translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-150 ease-in-out">
                     <button
                       onClick={() => handleEditClick(event)}
-                      className="p-1 text-slate-400 hover:text-indigo-600 hover:bg-white rounded border border-transparent hover:border-slate-200 transition-all shadow-sm"
+                      className="p-1 text-slate-400 dark:text-slate-500 hover:text-indigo-600 dark:hover:text-indigo-400 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 rounded border border-transparent hover:border-slate-200 dark:hover:border-slate-700 transition-all shadow-sm cursor-pointer"
                       title="Edit Event"
                       aria-label="Edit Event"
                     >
@@ -249,7 +245,7 @@ export const AcademicCalendar = () => {
                     </button>
                     <button
                       onClick={() => handleDelete(event.id || event._id)}
-                      className="p-1 text-slate-400 hover:text-rose-600 hover:bg-white rounded border border-transparent hover:border-slate-200 transition-all shadow-sm"
+                      className="p-1 text-slate-400 dark:text-slate-500 hover:text-rose-600 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 rounded border border-transparent hover:border-slate-200 dark:hover:border-slate-700 transition-all shadow-sm cursor-pointer"
                       title="Delete Event"
                       aria-label="Delete Event"
                     >
@@ -261,7 +257,7 @@ export const AcademicCalendar = () => {
             })
           ) : (
             !isAdding && (
-              <div className="text-center py-6 text-slate-450 text-xs italic">
+              <div className="text-center py-6 text-slate-450 dark:text-slate-500 text-xs italic">
                 No upcoming events listed. Click '+' to add one!
               </div>
             )
@@ -272,7 +268,7 @@ export const AcademicCalendar = () => {
       {events.length > 5 && (
         <button
           onClick={handleViewFullSchedule}
-          className="w-full mt-4 text-xs text-indigo-600 font-semibold hover:text-indigo-700 hover:underline text-center flex items-center justify-center gap-1.5 border-t border-slate-100 pt-3"
+          className="w-full mt-4 text-xs text-indigo-600 dark:text-indigo-400 font-semibold hover:text-indigo-705 dark:hover:text-indigo-300 hover:underline text-center flex items-center justify-center gap-1.5 border-t border-slate-100 dark:border-slate-800 pt-3 cursor-pointer"
         >
           <CalendarDays className="w-4 h-4" /> View Full Schedule ({events.length} events)
         </button>
@@ -281,42 +277,42 @@ export const AcademicCalendar = () => {
       {/* Full Schedule Modal */}
       {showFullSchedule && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-100 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl w-full max-w-lg max-h-[80vh] overflow-y-auto shadow-2xl border border-slate-200 flex flex-col animate-in zoom-in duration-200">
-            <div className="p-5 border-b border-slate-100 flex justify-between items-center sticky top-0 bg-white z-10">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl w-full max-w-lg max-h-[80vh] overflow-y-auto shadow-2xl border border-slate-200 dark:border-slate-850 flex flex-col animate-in zoom-in duration-200">
+            <div className="p-5 border-b border-slate-105 dark:border-slate-800 flex justify-between items-center sticky top-0 bg-white dark:bg-slate-900 z-10">
               <div className="flex items-center gap-2">
-                <CalendarDays className="w-5 h-5 text-indigo-600" />
-                <h3 className="font-bold text-slate-800 text-lg">Full Academic Calendar</h3>
+                <CalendarDays className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+                <h3 className="font-bold text-slate-800 dark:text-white text-lg">Full Academic Calendar</h3>
               </div>
               <button
                 onClick={() => setShowFullSchedule(false)}
-                className="text-slate-400 hover:text-slate-650 p-1.5 hover:bg-slate-50 rounded-lg transition-colors"
+                className="text-slate-400 hover:text-slate-655 p-1.5 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
                 aria-label="Close modal"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <div className="p-5 overflow-y-auto flex-1 space-y-4">
+            <div className="p-5 overflow-y-auto flex-1 space-y-4 bg-white dark:bg-slate-900">
               {fullScheduleEvents.length > 0 ? (
                 fullScheduleEvents.map((event) => {
                   const { month, day } = parseDateBadge(event.date);
                   return (
-                    <div key={event.id || event._id} className="group flex gap-3 items-start relative hover:bg-slate-50/50 p-2 -mx-2 rounded-xl transition-colors">
-                      <div className={`flex flex-col items-center justify-center w-12 h-12 rounded-lg shrink-0 font-sans ${getCategoryColorClass(event.category)}`}>
+                    <div key={event.id || event._id} className="group flex gap-3 items-start relative hover:bg-slate-100/70 dark:hover:bg-slate-800/60 p-2 -mx-2 rounded-xl transition-all duration-150 ease-in-out">
+                      <div className={`flex flex-col items-center justify-center w-12 h-12 rounded-lg shrink-0 font-sans transition-transform duration-150 ease-in-out group-hover:scale-105 ${getCategoryColorClass(event.category)}`}>
                         <span className="text-[10px] font-bold uppercase tracking-wider">{month}</span>
                         <span className="text-base font-extrabold leading-none mt-0.5">{day}</span>
                       </div>
                       <div className="flex-1 min-w-0 pr-12">
-                        <h4 className="text-sm font-semibold text-slate-800 line-clamp-1">{event.title}</h4>
-                        <p className="text-xs text-slate-500 flex items-center gap-1 mt-1 font-medium">
+                        <h4 className="text-sm font-semibold text-slate-800 dark:text-slate-200 line-clamp-1 leading-snug">{event.title}</h4>
+                        <p className="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-1 mt-1 font-medium">
                           {event.category === 'Deadline' && <AlertCircle className="w-3 h-3 text-amber-500" />}
                           {event.category}
                         </p>
                       </div>
-                      <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1 opacity-0 translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-150 ease-in-out">
                         <button
                           onClick={() => { setShowFullSchedule(false); handleEditClick(event); }}
-                          className="p-1 text-slate-400 hover:text-indigo-600 hover:bg-white rounded border border-transparent hover:border-slate-200 transition-all shadow-sm"
+                          className="p-1 text-slate-400 dark:text-slate-500 hover:text-indigo-600 dark:hover:text-indigo-400 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 rounded border border-transparent hover:border-slate-200 dark:hover:border-slate-700 transition-all shadow-sm cursor-pointer"
                           title="Edit Event"
                           aria-label="Edit Event"
                         >
@@ -324,7 +320,7 @@ export const AcademicCalendar = () => {
                         </button>
                         <button
                           onClick={() => handleDelete(event.id || event._id)}
-                          className="p-1 text-slate-400 hover:text-rose-600 hover:bg-white rounded border border-transparent hover:border-slate-200 transition-all shadow-sm"
+                          className="p-1 text-slate-400 dark:text-slate-500 hover:text-rose-600 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 rounded border border-transparent hover:border-slate-200 dark:hover:border-slate-700 transition-all shadow-sm cursor-pointer"
                           title="Delete Event"
                           aria-label="Delete Event"
                         >
@@ -335,7 +331,7 @@ export const AcademicCalendar = () => {
                   );
                 })
               ) : (
-                <div className="text-center py-12 text-slate-400 italic text-sm">
+                <div className="text-center py-12 text-slate-400 dark:text-slate-500 italic text-sm">
                   No calendar events found.
                 </div>
               )}

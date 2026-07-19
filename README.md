@@ -360,6 +360,10 @@ If `MONGO_URI` is not set or MongoDB Atlas is unreachable, the server automatica
 
 The `backend/services/dataStore.js` service seeds and manages `backend/data.json` transparently — no extra configuration needed for local development.
 
+> [!WARNING]
+> **Production Scalability Notice**: The local offline JSON fallback database (`backend/data.json`) uses synchronous filesystem writes and memory operations. It is designed **solely for quick offline local testing and development purposes**. It is not suitable for concurrent production use. For any testing under concurrent load, production staging, or real deployment, a proper MongoDB database (such as MongoDB Atlas) must be configured using the `MONGO_URI` environment variable to ensure database locking, transaction consistency, and scalability.
+
+
 ---
 
 

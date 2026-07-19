@@ -9,7 +9,10 @@ import {
     suspendUser,
     reactivateUser,
     getPlatformStats,
-    getAdminActivities
+    getAdminActivities,
+    approveAlumni,
+    rejectAlumni,
+    deleteUser
 } from '../controllers/admin.controller.js';
 import { authenticate } from '../middleware/authenticate.js';
 import { authorize } from '../middleware/authorize.js';
@@ -23,9 +26,14 @@ router.use(authorize('admin'));
 // Platform Stats
 router.get('/stats', getPlatformStats);
 
-// User account suspension
+// User account management
 router.patch('/users/:id/suspend', suspendUser);
 router.patch('/users/:id/reactivate', reactivateUser);
+router.delete('/users/:id', deleteUser);
+
+// Alumni Directory approval/rejection routes
+router.patch('/alumni/:id/approve', approveAlumni);
+router.patch('/alumni/:id/reject', rejectAlumni);
 
 // Student Directories & Analytics
 router.get('/students/activity-summary', getStudentsActivitySummary);

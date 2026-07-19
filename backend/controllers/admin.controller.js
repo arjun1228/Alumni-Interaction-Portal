@@ -400,3 +400,106 @@ export const getAdminActivities = async (req, res, next) => {
         next(err);
     }
 };
+
+export const approveAlumni = async (req, res, next) => {
+    try {
+        const alumniId = req.params.id;
+        const user = await dataStore.findById('User', alumniId);
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: 'User not found.'
+            });
+        }
+        if (user.role !== 'alumni') {
+            return res.status(400).json({
+                success: false,
+                message: 'User is not an alumni member.'
+            });
+        }
+        const updatedUser = await dataStore.update('User', { _id: alumniId }, {
+            $set: { approvalStatus: 'approved' }
+        });
+        await logAdminAction(req.user.id || req.user._id, 'approve_alumni', 'User', alumniId);
+        res.status(200).json({
+            success: true,
+            message: 'Alumni approved successfully.',
+            data: serializeUser(updatedUser)
+        });
+    } catch (err) {
+        next(err);
+    }
+};
+
+export const rejectAlumni = async (req, res, next) => {
+    try {
+        const alumniId = req.params.id;
+        const user = await dataStore.findById('User', alumniId);
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: 'User not found.'
+            });
+        }
+        if (user.role !== 'alumni') {
+            return res.status(400).json({
+                success: false,
+                message: 'User is not an alumni member.'
+            });
+        }
+        const updatedUser = await dataStore.update('User', { _id: alumniId }, {
+            $set: { approvalStatus: 'rejected' }
+        });
+        await logAdminAction(req.user.id || req.user._id, 'reject_alumni', 'User', alumniId);
+        res.status(200).json({
+            success: true,
+            message: 'Alumni rejected successfully.',
+            data: serializeUser(updatedUser)
+        });
+    } catch (err) {
+        next(err);
+    }
+};
+
+// Delete User (Admin-only, irreversible)
+export const deleteUser = async (req, res, next) => {
+    try {
+        const userId = req.params.id;
+        const user = await dataStore.findById('User', userId);
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: 'User not found.'
+            });
+        }
+
+        // Guard: cannot delete admin accounts
+        if (user.role === 'admin') {
+            return res.status(403).json({
+                success: false,
+                message: 'Forbidden: Admin accounts cannot be deleted.'
+            });
+        }
+
+        // Guard: cannot delete yourself
+        const currentAdminId = (req.user.id || req.user._id).toString();
+        if (userId === currentAdminId) {
+            return res.status(403).json({
+                success: false,
+                message: 'Forbidden: You cannot delete your own account.'
+            });
+        }
+
+        // Remove the user record (posts/jobs/events are intentionally NOT cascade-deleted)
+        await dataStore.remove('User', { _id: userId });
+
+        await logAdminAction(req.user.id || req.user._id, 'delete_user', 'User', userId);
+
+        res.status(200).json({
+            success: true,
+            message: `User "${user.name}" has been permanently deleted.`
+        });
+    } catch (err) {
+        next(err);
+    }
+};

@@ -1,11 +1,12 @@
 import express from 'express';
-import { getJobs, getJobById, createJob, updateJob, deleteJob, applyJob, updateJobStatus } from '../controllers/jobs.controller.js';
+import { getJobs, getJobById, createJob, updateJob, deleteJob, applyJob, updateJobStatus, semanticSearchJobs } from '../controllers/jobs.controller.js';
 import { authenticate } from '../middleware/authenticate.js';
 import { authorize, alumniApproved } from '../middleware/authorize.js';
 
 const router = express.Router();
 
 router.get('/', getJobs);
+router.post('/semantic-search', authenticate, semanticSearchJobs);
 router.get('/:id', getJobById);
 
 // Create Job: Protected, restricted to approved alumni only

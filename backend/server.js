@@ -1,7 +1,8 @@
+import './config/env.js';
 import express from 'express';
 import cors from 'cors';
-import dotenv from 'dotenv';
 import helmet from 'helmet';
+import passport from 'passport';
 import { rateLimit } from 'express-rate-limit';
 import { connectDB, isMongoConnected } from './config/db.js';
 import { errorHandler } from './middleware/errorHandler.js';
@@ -17,6 +18,7 @@ import usersRouter from './routes/users.routes.js';
 import uploadRouter from './routes/upload.routes.js';
 import adminRouter from './routes/admin.routes.js';
 import calendarRouter from './routes/calendar.routes.js';
+import analyticsRouter from './routes/analytics.routes.js';
 
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -24,9 +26,7 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Load local and default environment variables relative to backend root
-dotenv.config({ path: path.resolve(__dirname, '.env.local') });
-dotenv.config({ path: path.resolve(__dirname, '.env') });
+// Environment variables are loaded early via config/env.js import
 
 // Enforce JWT_SECRET configuration check
 if (!process.env.JWT_SECRET || process.env.JWT_SECRET.length < 32) {
@@ -71,6 +71,7 @@ app.use('/api/auth/login', authLimiter);
 app.use('/api/auth/signup', authLimiter);
 
 app.use(express.json());
+app.use(passport.initialize());
 
 // Serve static images/files uploaded via multer
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
@@ -116,6 +117,7 @@ app.use('/api/users', usersRouter);
 app.use('/api/upload', uploadRouter);
 app.use('/api/admin', adminRouter);
 app.use('/api/calendar', calendarRouter);
+app.use('/api/analytics', analyticsRouter);
 
 // Scaffold routes to test connection and status
 app.get('/api/db-status', (req, res) => {

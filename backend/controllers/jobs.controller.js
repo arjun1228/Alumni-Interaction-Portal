@@ -4,6 +4,7 @@ import { dataStore } from '../services/dataStore.js';
 import { serializePayload } from '../utils/roleMapper.js';
 import { canModify } from '../utils/permissions.js';
 import { logAdminAction } from '../utils/adminLogger.js';
+import { generateCompletion } from '../services/groqService.js';
 
 const jobSchemaVal = z.object({
     title: z.string().min(1, 'Job title is required'),
@@ -302,6 +303,114 @@ export const updateJobStatus = async (req, res, next) => {
         res.status(200).json({
             success: true,
             data: mappedJob
+        });
+    } catch (err) {
+        next(err);
+    }
+};
+
+export const semanticSearchJobs = async (req, res, next) => {
+    try {
+        const { query } = req.body;
+        if (!query || typeof query !== 'string' || !query.trim()) {
+            return res.status(400).json({
+                success: false,
+                message: 'Search query is required.'
+            });
+        }
+
+        // Fetch all open jobs (status not filled)
+        const dbQuery = { status: { $ne: 'filled' } };
+        const jobs = await dataStore.find('Job', dbQuery, {
+            populate: 'postedBy'
+        });
+
+        if (!jobs || jobs.length === 0) {
+            return res.status(200).json({
+                success: true,
+                data: []
+            });
+        }
+
+        // Condense jobs list to feed Llama
+        const condensedJobs = jobs.map(j => ({
+            id: j.id || j._id?.toString(),
+            title: j.title,
+            company: j.company,
+            location: j.location,
+            type: j.type,
+            skillsRequired: j.skillsRequired || [],
+            description: j.description ? (j.description.length > 250 ? j.description.substring(0, 250) + '...' : j.description) : ''
+        }));
+
+        const systemPrompt = "You are an expert job search matching assistant. Given a user's natural-language search query and a list of job listings (as JSON), return a JSON array of job IDs ranked from most to least relevant to the query.\n\nInstructions:\n1. Evaluate matches based on semantic meaning, role synonyms (e.g. 'full stack' matches web developers with React/Node/Frontend/Backend skills, 'backend' matches Node/Python/Go/Java, 'fintech' matches finance/banking tech, 'frontend' matches React/HTML/CSS), work style (e.g. 'remote', 'hybrid', 'on-site'), and experience levels (e.g. 'entry level', 'junior', 'senior').\n2. Pay heavy attention to the 'skillsRequired' array and role title similarity. Skill overlap is a primary relevance signal.\n3. Only include jobs that have a reasonable semantic match to the query. Do not return irrelevant jobs.\n4. Respond with ONLY a JSON array of ID strings, nothing else. Do not wrap in markdown block formatting.";
+
+        const messages = [
+            {
+                role: 'user',
+                content: `User query: "${query}"\n\nJob listings (JSON):\n${JSON.stringify(condensedJobs, null, 2)}`
+            }
+        ];
+
+        const responseText = await generateCompletion({
+            systemPrompt,
+            messages
+        });
+
+        let rankedIds = [];
+        let isRateLimited = false;
+
+        if (responseText && responseText.includes("The AI mentor is temporarily busy")) {
+            isRateLimited = true;
+        } else {
+            try {
+                let cleanText = responseText.trim();
+                if (cleanText.startsWith('```')) {
+                    const lines = cleanText.split('\n');
+                    if (lines[0].startsWith('```')) {
+                        lines.shift();
+                    }
+                    if (lines[lines.length - 1].startsWith('```')) {
+                        lines.pop();
+                    }
+                    cleanText = lines.join('\n').trim();
+                }
+                rankedIds = JSON.parse(cleanText);
+            } catch (err) {
+                console.error("Failed to parse Groq response as JSON. Raw response was:", responseText);
+            }
+        }
+
+        if (isRateLimited) {
+            return res.status(429).json({
+                success: false,
+                message: "The search assistant is temporarily busy — please try again in a moment.",
+                data: []
+            });
+        }
+
+        if (!Array.isArray(rankedIds)) {
+            return res.status(200).json({
+                success: true,
+                message: "No relevant jobs found or search failed.",
+                data: []
+            });
+        }
+
+        const mappedJobs = serializePayload(jobs);
+        const rankedJobs = [];
+        
+        // Add jobs in the ranked order
+        for (const id of rankedIds) {
+            const foundJob = mappedJobs.find(j => (j.id || j._id?.toString()) === id);
+            if (foundJob) {
+                rankedJobs.push(foundJob);
+            }
+        }
+
+        res.status(200).json({
+            success: true,
+            data: rankedJobs
         });
     } catch (err) {
         next(err);
